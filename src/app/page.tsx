@@ -278,7 +278,6 @@ export default function VividCastPage() {
   }, [isRecording, isPaused]);
   
   const handleTourComplete = useCallback(() => {
-    localStorage.setItem('vividcast-tour-completed', 'true');
     setIsTourActive(false);
   }, []);
 
