@@ -330,6 +330,32 @@ export function VideoPreview({
     }
   }, [isPaused]);
 
+  // This effect ensures the hidden video elements keep playing.
+  useEffect(() => {
+    const keepVideoPlaying = (videoElement: HTMLVideoElement | null) => {
+      if (!videoElement) return () => {};
+      
+      const onPause = () => {
+        if (videoElement.paused) {
+          videoElement.play().catch(() => {
+            // This can happen if user hasn't interacted with the page yet.
+            // The main video logic should handle the initial play.
+          });
+        }
+      };
+      
+      videoElement.addEventListener('pause', onPause);
+      return () => videoElement.removeEventListener('pause', onPause);
+    };
+
+    const cleanupVideo = keepVideoPlaying(videoRef.current);
+    const cleanupScreen = keepVideoPlaying(screenVideoRef.current);
+
+    return () => {
+      cleanupVideo();
+      cleanupScreen();
+    };
+  }, []);
 
   return (
     <div 
