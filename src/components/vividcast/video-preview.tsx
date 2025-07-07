@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { Effects, LogoSettings, PipSettings, SideBySideSettings } from '@/app/page';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -71,6 +71,53 @@ export function VideoPreview({
   const lastFrameTimeRef = useRef(0);
   const animationFrameId = useRef<number>();
 
+  const onResults = useCallback((results: SegmentationResults) => {
+    if (!offscreenCanvasRef.current) return;
+    const ctx = offscreenCanvasRef.current.getContext('2d');
+    if (!ctx || !results.image) return;
+    
+    offscreenCanvasRef.current.width = results.image.width;
+    offscreenCanvasRef.current.height = results.image.height;
+    
+    ctx.save();
+    ctx.clearRect(0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+    ctx.drawImage(results.segmentationMask, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.drawImage(results.image, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+    
+    ctx.restore();
+  }, []);
+
+  useEffect(() => {
+    const initializeSegmenter = async () => {
+      try {
+        const { SelfieSegmentation } = await import('@mediapipe/selfie_segmentation');
+        const segmentation = new SelfieSegmentation({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/${file}`,
+        });
+        segmentation.setOptions({ modelSelection: 1 });
+        segmentation.onResults(onResults);
+        
+        await segmentation.initialize();
+        segmentationRef.current = segmentation;
+        offscreenCanvasRef.current = document.createElement('canvas');
+        setIsSegmenterReady(true);
+      } catch (error) {
+        console.error("Failed to initialize selfie segmentation:", error);
+      }
+    };
+
+    initializeSegmenter();
+    
+    return () => {
+        segmentationRef.current?.close();
+        segmentationRef.current = null;
+        offscreenCanvasRef.current = null;
+        setIsSegmenterReady(false);
+    };
+  }, [onResults]);
+  
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -87,57 +134,6 @@ export function VideoPreview({
     canvas.height = canvasHeight;
   }, [aspectRatio]);
 
-  useEffect(() => {
-    const onResults = (results: SegmentationResults) => {
-        if (!offscreenCanvasRef.current) return;
-        const ctx = offscreenCanvasRef.current.getContext('2d');
-        if (!ctx || !results.image) return;
-        
-        offscreenCanvasRef.current.width = results.image.width;
-        offscreenCanvasRef.current.height = results.image.height;
-        
-        ctx.save();
-        ctx.clearRect(0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
-        ctx.drawImage(results.segmentationMask, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
-
-        ctx.globalCompositeOperation = 'source-in';
-        ctx.drawImage(results.image, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
-        
-        ctx.restore();
-    };
-
-    const initializeSegmenter = async () => {
-      try {
-        const { SelfieSegmentation } = await import('@mediapipe/selfie_segmentation');
-        const segmentation = new SelfieSegmentation({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/${file}`,
-        });
-        segmentation.setOptions({ modelSelection: 1 });
-        segmentation.onResults(onResults);
-        
-        await segmentation.initialize();
-        segmentationRef.current = segmentation;
-        offscreenCanvasRef.current = document.createElement('canvas');
-        setIsSegmenterReady(true);
-      } catch (error) {
-        console.error("Failed to initialize selfie segmentation:", error);
-        toast({
-          variant: "destructive",
-          title: "Background Effects Unavailable",
-          description: "Could not load the background removal feature."
-        });
-      }
-    };
-
-    initializeSegmenter();
-    
-    return () => {
-        segmentationRef.current?.close();
-        segmentationRef.current = null;
-        offscreenCanvasRef.current = null;
-        setIsSegmenterReady(false);
-    };
-  }, [toast]);
 
   useEffect(() => {
     if (slideImages.length > 0 && currentSlide < slideImages.length) {
@@ -230,7 +226,7 @@ export function VideoPreview({
       const screenReady = screenStream && screenVideo && screenVideo.readyState >= 2;
       const slideReady = slideImageRef.current?.complete && slideImageRef.current.naturalHeight !== 0;
       const isPresenting = screenStream || slideImages.length > 0;
-      const useSegmentation = isSegmenterReady && !!selectedBackground && !isPresenting;
+      const useSegmentation = isSegmenterReady && !!selectedBackground;
       
       if (useSegmentation && camReady && video.currentTime !== lastFrameTimeRef.current) {
         lastFrameTimeRef.current = video.currentTime;
@@ -365,7 +361,7 @@ export function VideoPreview({
     return () => {
       if(animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
-  }, [hasCameraPermission, screenStream, slideImages.length, selectedBackground, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, sideBySideSettings, aspectRatio]);
+  }, [hasCameraPermission, screenStream, slideImages.length, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, sideBySideSettings, aspectRatio, selectedBackground, onResults]);
 
   useEffect(() => {
     if (isRecording) {
@@ -438,7 +434,7 @@ export function VideoPreview({
     >
       <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
       <video ref={screenVideoRef} autoPlay playsInline muted className="hidden"></video>
-      <canvas ref={canvasRef} className={cn('w-full h-full object-cover', { 'invisible': hasCameraPermission !== true })}></canvas>
+      <canvas ref={canvasRef} className="w-full h-full object-cover"></canvas>
       
        {isRecording && (
         <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm z-10">
