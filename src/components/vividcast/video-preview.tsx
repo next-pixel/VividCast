@@ -382,7 +382,7 @@ export function VideoPreview({
             break;
           case 'picture-in-picture':
             drawPresentation(0, 0, canvas.width, canvas.height);
-            const pipWidth = canvas.width / 4;
+            const pipWidth = canvas.width * (pipSettings.size / 100);
             const camAspectRatio = video.videoHeight ? video.videoWidth / video.videoHeight : 16/9;
             const pipHeight = pipWidth / camAspectRatio;
             const padding = 20;
@@ -396,6 +396,7 @@ export function VideoPreview({
             }
 
             ctx.save();
+            ctx.globalAlpha = pipSettings.opacity / 100;
             ctx.beginPath();
             if (pipSettings.shape === 'circle') {
               ctx.arc(pipX + pipWidth / 2, pipY + pipHeight / 2, Math.min(pipWidth, pipHeight) / 2, 0, 2 * Math.PI);

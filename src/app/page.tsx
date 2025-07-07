@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -6,7 +5,6 @@ import { Header } from '@/components/vividcast/header';
 import { SettingsPanel } from '@/components/vividcast/settings-panel';
 import { VideoPreview } from '@/components/vividcast/video-preview';
 import { Controls } from '@/components/vividcast/controls';
-import { TeleprompterDisplay } from '@/components/vividcast/teleprompter-display';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjs from 'pdfjs-dist';
@@ -20,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { TeleprompterDisplay } from '@/components/vividcast/teleprompter-display';
 
 if (typeof window !== 'undefined') {
   pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.mjs`;
@@ -53,6 +52,8 @@ export type PipPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-rig
 export type PipSettings = {
   shape: PipShape;
   position: PipPosition;
+  size: number;
+  opacity: number;
 };
 
 export type SideBySideSettings = {
@@ -89,7 +90,9 @@ export default function VividCastPage() {
   })
   const [pipSettings, setPipSettings] = useState<PipSettings>({
     shape: 'rectangle',
-    position: 'bottom-right'
+    position: 'bottom-right',
+    size: 25,
+    opacity: 100,
   });
   const [sideBySideSettings, setSideBySideSettings] = useState<SideBySideSettings>({ split: 50 });
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -99,17 +102,6 @@ export default function VividCastPage() {
 
 
   const { toast } = useToast();
-
-  useEffect(() => {
-    // This effect runs once on the client after hydration
-    const tourCompleted = localStorage.getItem('vividcast-tour-completed');
-    if (!tourCompleted) {
-      // Use a timeout to ensure all elements are rendered and available
-      setTimeout(() => {
-        setIsTourActive(true);
-      }, 500);
-    }
-  }, []);
 
   useEffect(() => {
     const getDevices = async () => {
@@ -368,6 +360,12 @@ export default function VividCastPage() {
       <main className="flex-1 container mx-auto p-4 md:p-6 lg:p-8 flex flex-col lg:flex-row items-start gap-8">
         <div id="settings-panel-wrapper" className="w-full lg:w-96 lg:sticky lg:top-8">
           <SettingsPanel
+            // Device
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
+            videoDevices={videoDevices}
+            selectedDeviceId={selectedDeviceId}
+            onCameraChange={setSelectedDeviceId}
             // Teleprompter
             setTeleprompterText={setTeleprompterText}
             teleprompterSettings={teleprompterSettings}
@@ -447,13 +445,8 @@ export default function VividCastPage() {
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
             onTogglePause={togglePause}
-            aspectRatio={aspectRatio}
-            onAspectRatioChange={setAspectRatio}
             isMuted={isMuted}
             onToggleMute={() => setIsMuted(prev => !prev)}
-            videoDevices={videoDevices}
-            selectedDeviceId={selectedDeviceId}
-            onCameraChange={setSelectedDeviceId}
             isFullscreen={isFullscreen}
             onToggleFullScreen={toggleFullScreen}
           />

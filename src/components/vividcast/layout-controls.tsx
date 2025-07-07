@@ -178,6 +178,28 @@ export function LayoutControls({
                     ))}
                 </RadioGroup>
             </div>
+            <div className="space-y-2">
+                <Label htmlFor="pip-size">Size: {pipSettings.size}%</Label>
+                <Slider
+                    id="pip-size"
+                    min={10}
+                    max={50}
+                    step={1}
+                    value={[pipSettings.size]}
+                    onValueChange={(value) => onPipSettingsChange({ ...pipSettings, size: value[0] })}
+                />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="pip-opacity">Opacity: {pipSettings.opacity}%</Label>
+                <Slider
+                    id="pip-opacity"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={[pipSettings.opacity]}
+                    onValueChange={(value) => onPipSettingsChange({ ...pipSettings, opacity: value[0] })}
+                />
+            </div>
           </CardContent>
         </Card>
       )}
