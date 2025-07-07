@@ -1,3 +1,4 @@
+
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -46,7 +47,7 @@ export function Header({ videoUrl }: HeaderProps) {
                 <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                 <span className="sr-only">Toggle theme</span>
             </Button>
-            <Button onClick={handleDownload} disabled={!videoUrl} size="sm">
+            <Button onClick={handleDownload} disabled={!videoUrl} size="sm" id="tour-export-button">
               <Download className="mr-0 sm:mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Export Video</span>
             </Button>

@@ -49,7 +49,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
     <Card className="w-full">
       <CardContent className="p-2">
         <Accordion type="single" collapsible defaultValue="teleprompter" className="w-full">
-          <AccordionItem value="teleprompter">
+          <AccordionItem value="teleprompter" id="tour-teleprompter">
             <AccordionTrigger className="px-4 hover:no-underline">
               <div className="flex items-center gap-3">
                 <Mic className="h-5 w-5 text-primary" />
@@ -67,7 +67,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="slides">
+          <AccordionItem value="slides" id="tour-slides">
             <AccordionTrigger className="px-4 hover:no-underline">
               <div className="flex items-center gap-3">
                 <Film className="h-5 w-5 text-primary" />
@@ -85,7 +85,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
             </AccordionContent>
           </AccordionItem>
           
-          <AccordionItem value="layout">
+          <AccordionItem value="layout" id="tour-layout">
             <AccordionTrigger className="px-4 hover:no-underline">
               <div className="flex items-center gap-3">
                 <Layout className="h-5 w-5 text-primary" />
@@ -106,7 +106,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="background">
+          <AccordionItem value="background" id="tour-background">
             <AccordionTrigger className="px-4 hover:no-underline">
               <div className="flex items-center gap-3">
                 <ImageIcon className="h-5 w-5 text-primary" />
@@ -120,7 +120,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="effects">
+          <AccordionItem value="effects" id="tour-effects">
             <AccordionTrigger className="px-4 hover:no-underline">
               <div className="flex items-center gap-3">
                 <Wand2 className="h-5 w-5 text-primary" />
@@ -132,7 +132,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
             </AccordionContent>
           </AccordionItem>
           
-          <AccordionItem value="branding" className="border-b-0">
+          <AccordionItem value="branding" id="tour-branding" className="border-b-0">
             <AccordionTrigger className="px-4 hover:no-underline">
               <div className="flex items-center gap-3">
                 <Award className="h-5 w-5 text-primary" />
