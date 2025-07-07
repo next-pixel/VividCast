@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import type { Effects, LogoSettings } from '@/app/page';
 import { useToast } from '@/hooks/use-toast';
@@ -50,12 +51,10 @@ export function VideoPreview({
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const renderIntervalIdRef = useRef<number>();
+  
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const { toast } = useToast();
   
-  const effectsRef = useRef(effects);
-  const layoutRef = useRef(selectedLayout);
   const slideImageRef = useRef<HTMLImageElement | null>(null);
   const logoImageRef = useRef<HTMLImageElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -67,11 +66,6 @@ export function VideoPreview({
   const [isSegmenterReady, setIsSegmenterReady] = useState(false);
   const lastFrameTimeRef = useRef(0);
 
-  useEffect(() => {
-    effectsRef.current = effects;
-    layoutRef.current = selectedLayout;
-  }, [effects, selectedLayout]);
-  
   // Update canvas resolution when aspect ratio changes to prevent distortion
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -95,7 +89,7 @@ export function VideoPreview({
     const onResults = (results: SegmentationResults) => {
         if (!offscreenCanvasRef.current) return;
         const ctx = offscreenCanvasRef.current.getContext('2d');
-        if (!ctx) return;
+        if (!ctx || !results.image) return;
         
         offscreenCanvasRef.current.width = results.image.width;
         offscreenCanvasRef.current.height = results.image.height;
@@ -112,8 +106,8 @@ export function VideoPreview({
 
     const initializeSegmenter = async () => {
       try {
-        const selfieSegmentationModule = await import('@mediapipe/selfie_segmentation');
-        const segmentation = new selfieSegmentationModule.SelfieSegmentation({
+        const { SelfieSegmentation } = await import('@mediapipe/selfie_segmentation');
+        const segmentation = new SelfieSegmentation({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/${file}`,
         });
         segmentation.setOptions({ modelSelection: 1 });
@@ -218,34 +212,35 @@ export function VideoPreview({
   }, [screenStream]);
 
 
+  // Main rendering effect
   useEffect(() => {
     const video = videoRef.current;
     const screenVideo = screenVideoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!video || !canvas || !hasCameraPermission) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    const render = async () => {
+    let renderIntervalId: number;
+
+    const render = () => {
       if (!canvas || !ctx) return;
-      const currentEffects = effectsRef.current;
-      const currentLayout = layoutRef.current;
+      
       const camReady = video.readyState >= 2;
       const screenReady = screenStream && screenVideo && screenVideo.readyState >= 2;
       const slideReady = slideImageRef.current?.complete && slideImageRef.current.naturalHeight !== 0;
-
       const isPresenting = screenStream || slideImages.length > 0;
       const useSegmentation = isSegmenterReady && !!selectedBackground && !isPresenting;
       
       if (useSegmentation && camReady && video.currentTime !== lastFrameTimeRef.current) {
         lastFrameTimeRef.current = video.currentTime;
-        await segmentationRef.current?.send({ image: video });
+        segmentationRef.current?.send({ image: video });
       }
 
       const drawWithLetterbox = (source: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => {
-        const sw = (source as any).videoWidth || (source as any).naturalWidth || source.width;
-        const sh = (source as any).videoHeight || (source as any).naturalHeight || source.height;
+        const sw = (source as any).videoWidth || (source as any).naturalWidth || (source as any).width || 0;
+        const sh = (source as any).videoHeight || (source as any).naturalHeight || (source as any).height || 0;
         if (!sw || !sh) return;
   
         const sRatio = sw / sh;
@@ -268,12 +263,12 @@ export function VideoPreview({
       }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.filter = `blur(${currentEffects.blur}px) hue-rotate(${currentEffects.hue}deg) opacity(${currentEffects.opacity}%)`;
+      ctx.filter = `blur(${effects.blur}px) hue-rotate(${effects.hue}deg) opacity(${effects.opacity}%)`;
       
       const drawCam = (x: number, y: number, w: number, h: number) => {
         const source = (useSegmentation && offscreenCanvasRef.current?.width > 0) ? offscreenCanvasRef.current : video;
         if (camReady) {
-          drawWithLetterbox(source, x, y, w, h);
+          drawWithLetterbox(source!, x, y, w, h);
         }
       };
 
@@ -287,7 +282,7 @@ export function VideoPreview({
       const drawPresentation = slideReady ? drawSlide : drawScreen;
 
       if (isPresenting) {
-        switch (currentLayout) {
+        switch (selectedLayout) {
           case 'full-screen':
             drawPresentation(0, 0, canvas.width, canvas.height);
             break;
@@ -303,7 +298,7 @@ export function VideoPreview({
             break;
           case 'presenter':
             drawCam(0, 0, canvas.width, canvas.height);
-            const presentationAsset = slideReady ? slideImageRef.current! : (screenReady ? screenVideo! : null);
+            const presentationAsset = slideReady ? slideImageRef.current : (screenReady ? screenVideo : null);
             if (presentationAsset) {
                 const assetWidth = 'videoWidth' in presentationAsset ? presentationAsset.videoWidth : presentationAsset.width;
                 const assetHeight = 'videoHeight' in presentationAsset ? presentationAsset.videoHeight : presentationAsset.height;
@@ -346,23 +341,13 @@ export function VideoPreview({
       }
     };
     
-    const startRenderLoop = () => {
-      if (renderIntervalIdRef.current) {
-        clearInterval(renderIntervalIdRef.current);
-      }
-      video.play().catch(e => console.error("Error playing video:", e));
-      renderIntervalIdRef.current = window.setInterval(render, 1000 / 30); // 30 FPS
-    };
-    
-    startRenderLoop();
+    video.play().catch(e => console.error("Error playing video:", e));
+    renderIntervalId = window.setInterval(render, 1000 / 30); // 30 FPS
 
     return () => {
-      if (renderIntervalIdRef.current) {
-        clearInterval(renderIntervalIdRef.current);
-        renderIntervalIdRef.current = undefined;
-      }
+      clearInterval(renderIntervalId);
     };
-  }, [hasCameraPermission, screenStream, logoSettings, slideImages, selectedBackground, isSegmenterReady, aspectRatio]);
+  }, [hasCameraPermission, screenStream, slideImages.length, selectedBackground, isSegmenterReady, effects, selectedLayout, logoSettings, aspectRatio]);
 
   useEffect(() => {
     if (isRecording) {
@@ -458,7 +443,7 @@ export function VideoPreview({
     >
       <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
       <video ref={screenVideoRef} autoPlay playsInline muted className="hidden"></video>
-      <canvas ref={canvasRef} className={cn('w-full h-full', { 'invisible': hasCameraPermission !== true })}></canvas>
+      <canvas ref={canvasRef} className={cn('w-full h-full object-contain', { 'invisible': hasCameraPermission !== true })}></canvas>
       
        {isRecording && (
         <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm z-10">
@@ -496,3 +481,5 @@ export function VideoPreview({
     </div>
   );
 }
+
+    
