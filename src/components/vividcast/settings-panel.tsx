@@ -70,7 +70,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
             <AccordionTrigger className="px-4 hover:no-underline">
               <div className="flex items-center gap-3">
                 <Settings className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-foreground">Device & Scene</span>
+                <span className="font-semibold text-foreground">Device Settings</span>
               </div>
             </AccordionTrigger>
             <AccordionContent className="p-4 pt-2">
