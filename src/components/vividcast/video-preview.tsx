@@ -61,6 +61,7 @@ export function VideoPreview({
   
   const slideImageRef = useRef<HTMLImageElement | null>(null);
   const logoImageRef = useRef<HTMLImageElement | null>(null);
+  const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -90,15 +91,20 @@ export function VideoPreview({
               const ctx = offscreenCanvasRef.current.getContext('2d');
               if (!ctx || !results.image) return;
               
-              offscreenCanvasRef.current.width = results.image.width;
-              offscreenCanvasRef.current.height = results.image.height;
-              
+              const { width, height } = results.image;
+              offscreenCanvasRef.current.width = width;
+              offscreenCanvasRef.current.height = height;
+
               ctx.save();
-              ctx.clearRect(0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
-              ctx.drawImage(results.segmentationMask, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+              ctx.clearRect(0, 0, width, height);
+              
+              // Smooth the mask edges with a blur for a better effect
+              ctx.filter = 'blur(4px)';
+              ctx.drawImage(results.segmentationMask, 0, 0, width, height);
+              ctx.filter = 'none';
           
               ctx.globalCompositeOperation = 'source-in';
-              ctx.drawImage(results.image, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+              ctx.drawImage(results.image, 0, 0, width, height);
               
               ctx.restore();
             });
@@ -142,6 +148,28 @@ export function VideoPreview({
     canvas.height = canvasHeight;
   }, [aspectRatio]);
 
+  useEffect(() => {
+    if (selectedBackground && selectedBackground.startsWith('url(')) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            setBackgroundImage(img);
+        };
+        img.onerror = () => {
+            setBackgroundImage(null);
+            console.error('Failed to load background image:', selectedBackground);
+            toast({
+                variant: 'destructive',
+                title: 'Background Error',
+                description: 'Could not load the selected background image.',
+            });
+        };
+        // Handles url("...") and url(...)
+        img.src = selectedBackground.replace(/^url\((['"]?)(.*)\1\)$/, '$2');
+    } else {
+        setBackgroundImage(null);
+    }
+  }, [selectedBackground, toast]);
 
   useEffect(() => {
     if (slideImages.length > 0 && currentSlide < slideImages.length) {
@@ -288,8 +316,50 @@ export function VideoPreview({
         }
         ctx.drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dw, dh);
       }
-
+      
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // --- Draw background onto canvas so it gets recorded ---
+      if (selectedBackground) {
+        if (selectedBackground.startsWith('url(') && backgroundImage?.complete && backgroundImage.naturalWidth > 0) {
+            drawCovered(backgroundImage, 0, 0, canvas.width, canvas.height);
+        } else if (selectedBackground.startsWith('linear-gradient')) {
+            let gradient: CanvasGradient | null = null;
+            if (selectedBackground === 'linear-gradient(to top right, #ff9a9e, #fad0c4)') {
+                gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, '#ff9a9e');
+                gradient.addColorStop(1, '#fad0c4');
+            } else if (selectedBackground === 'linear-gradient(to top right, #ff7e5f, #feb47b)') {
+                gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, '#ff7e5f');
+                gradient.addColorStop(1, '#feb47b');
+            } else if (selectedBackground === 'linear-gradient(to top right, #4facfe, #00f2fe)') {
+                gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, '#4facfe');
+                gradient.addColorStop(1, '#00f2fe');
+            } else if (selectedBackground === 'linear-gradient(to top right, #6a11cb, #2575fc)') {
+                gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, '#6a11cb');
+                gradient.addColorStop(1, '#2575fc');
+            }
+            if (gradient) {
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+      } else {
+        // Draw a default background matching the theme's muted color for consistency in recording
+        ctx.fillStyle = '#E5E7EB'; // A neutral light gray as a fallback.
+        try {
+            // Attempt to get the computed style for a more accurate color
+            const style = getComputedStyle(canvas);
+            const mutedColor = style.getPropertyValue('--muted');
+            if (mutedColor) ctx.fillStyle = `hsl(${mutedColor})`;
+        } catch(e) { /* ignore */ }
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      // --- End background drawing ---
+
       ctx.filter = `blur(${effects.blur}px) hue-rotate(${effects.hue}deg) opacity(${effects.opacity}%)`;
       
       const drawCam = (x: number, y: number, w: number, h: number) => {
@@ -397,7 +467,7 @@ export function VideoPreview({
     return () => {
       if(animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
-  }, [hasCameraPermission, screenStream, slideImages.length, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, sideBySideSettings, aspectRatio, selectedBackground]);
+  }, [hasCameraPermission, screenStream, slideImages.length, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, sideBySideSettings, aspectRatio, selectedBackground, backgroundImage]);
 
   useEffect(() => {
     if (isRecording) {
