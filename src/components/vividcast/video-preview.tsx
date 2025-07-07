@@ -209,7 +209,6 @@ export function VideoPreview({
   useEffect(() => {
     if (screenVideoRef.current && screenStream) {
       screenVideoRef.current.srcObject = screenStream;
-      screenVideoRef.current.play().catch(e => console.error("Error playing screen share video:", e));
     }
   }, [screenStream]);
 
@@ -219,9 +218,6 @@ export function VideoPreview({
     const screenVideo = screenVideoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || !hasCameraPermission) return;
-
-    video.play().catch(e => console.error("Error playing video:", e));
-    if (screenVideo) screenVideo.play().catch(e => console.error("Error playing screen share video:", e));
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -437,7 +433,7 @@ export function VideoPreview({
 
   return (
     <div 
-      className="relative w-full h-full border-2 border-muted bg-card shadow-lg flex items-center justify-center"
+      className="relative w-full h-full bg-card flex items-center justify-center overflow-hidden"
       style={{ background: selectedBackground || 'hsl(var(--muted))' }}
     >
       <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
