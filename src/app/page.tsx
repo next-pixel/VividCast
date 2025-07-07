@@ -278,6 +278,10 @@ export default function VividCastPage() {
     setIsTourActive(false);
   }, []);
 
+  const startTour = useCallback(() => {
+    setIsTourActive(true);
+  }, []);
+
   const tourSteps: TourStep[] = [
     {
       selector: '#tour-teleprompter',
@@ -348,7 +352,7 @@ export default function VividCastPage() {
 
   return (
     <div className="bg-background min-h-screen w-full flex flex-col font-sans">
-      <Header videoUrl={recordedVideoUrl} />
+      <Header videoUrl={recordedVideoUrl} onStartTour={startTour} />
       <main className="flex-1 container mx-auto p-4 md:p-6 lg:p-8 flex flex-col lg:flex-row items-start gap-8">
         <div id="settings-panel-wrapper" className="w-full lg:w-96 lg:sticky lg:top-8">
           <SettingsPanel

@@ -23,6 +23,12 @@ export function UITour({ steps, onComplete, isOpen }: UITourProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetElement, setTargetElement] = useState<Element | null>(null);
 
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStepIndex(0);
+    }
+  }, [isOpen]);
+
   // Find the target element and handle highlighting
   useEffect(() => {
     if (!isOpen) return;

@@ -2,15 +2,16 @@
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Download, Moon, Sun, HelpCircle } from 'lucide-react';
+import { Download, Moon, Sun, HelpCircle, Rocket } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Logo } from './logo';
 
 interface HeaderProps {
     videoUrl: string | null;
+    onStartTour: () => void;
 }
 
-export function Header({ videoUrl }: HeaderProps) {
+export function Header({ videoUrl, onStartTour }: HeaderProps) {
     const { theme, setTheme } = useTheme();
 
     const handleDownload = () => {
@@ -32,6 +33,10 @@ export function Header({ videoUrl }: HeaderProps) {
           <h1 className="text-2xl font-bold text-foreground">VividCast</h1>
         </div>
         <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={onStartTour}>
+                <Rocket className="h-5 w-5" />
+                <span className="sr-only">Start Tour</span>
+            </Button>
             <Button variant="ghost" size="icon" asChild>
               <Link href="/how-to-use">
                 <HelpCircle className="h-5 w-5" />
