@@ -9,6 +9,11 @@ import { Controls } from '@/components/vividcast/controls';
 import { TeleprompterDisplay } from '@/components/vividcast/teleprompter-display';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import * as pdfjs from 'pdfjs-dist';
+
+if (typeof window !== 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.mjs`;
+}
 
 export type Effects = {
   blur: number;
@@ -38,8 +43,59 @@ export default function VividCastPage() {
   const [recordedVideoUrl, setRecordedVideoUrl] = useState<string | null>(null);
   const [isSharingScreen, setIsSharingScreen] = useState(false);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const [slideImages, setSlideImages] = useState<string[]>([]);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
 
   const { toast } = useToast();
+
+  const handlePdfUpload = async (file: File) => {
+    if (!file) return;
+    setIsProcessingPdf(true);
+    setSlideImages([]);
+    setCurrentSlide(0);
+    toast({ title: 'Processing PDF...', description: 'Please wait while we prepare your slides.' });
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjs.getDocument(arrayBuffer).promise;
+      const numPages = pdf.numPages;
+      const images: string[] = [];
+      
+      for (let i = 1; i <= numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        if (context) {
+          await page.render({ canvasContext: context, viewport: viewport }).promise;
+          images.push(canvas.toDataURL('image/png'));
+        }
+      }
+      
+      setSlideImages(images);
+      toast({ title: 'Slides ready!', description: `Your PDF with ${numPages} pages has been imported.` });
+
+    } catch (error) {
+      console.error('Error processing PDF:', error);
+      toast({
+        variant: 'destructive',
+        title: 'PDF Processing Failed',
+        description: 'There was an error importing your slides. Please try another file.',
+      });
+    } finally {
+      setIsProcessingPdf(false);
+    }
+  };
+
+  const handleSlideChange = (newSlide: number) => {
+    if (newSlide >= 0 && newSlide < slideImages.length) {
+      setCurrentSlide(newSlide);
+    }
+  };
 
   const toggleScreenSharing = async () => {
     if (isSharingScreen) {
@@ -121,6 +177,11 @@ export default function VividCastPage() {
             setTeleprompterSettings={setTeleprompterSettings}
             teleprompterPosition={teleprompterPosition}
             onTeleprompterPositionChange={setTeleprompterPosition}
+            onPdfUpload={handlePdfUpload}
+            isProcessingPdf={isProcessingPdf}
+            currentSlide={currentSlide}
+            totalSlides={slideImages.length}
+            onSlideChange={handleSlideChange}
           />
         </div>
 
@@ -141,6 +202,8 @@ export default function VividCastPage() {
               selectedBackground={selectedBackground}
               screenStream={screenStream}
               selectedLayout={selectedLayout}
+              slideImages={slideImages}
+              currentSlide={currentSlide}
             />
             {countdown > 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">

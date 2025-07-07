@@ -12,6 +12,11 @@ interface LeftPanelProps {
   setTeleprompterSettings: (settings: TeleprompterSettings) => void;
   teleprompterPosition: TeleprompterPosition;
   onTeleprompterPositionChange: (position: TeleprompterPosition) => void;
+  onPdfUpload: (file: File) => void;
+  isProcessingPdf: boolean;
+  currentSlide: number;
+  totalSlides: number;
+  onSlideChange: (slide: number) => void;
 }
 
 export function LeftPanel({
@@ -20,6 +25,11 @@ export function LeftPanel({
   setTeleprompterSettings,
   teleprompterPosition,
   onTeleprompterPositionChange,
+  onPdfUpload,
+  isProcessingPdf,
+  currentSlide,
+  totalSlides,
+  onSlideChange,
 }: LeftPanelProps) {
   return (
     <Card className="w-full max-w-sm xl:w-sm sticky top-6">
@@ -45,7 +55,13 @@ export function LeftPanel({
             />
           </TabsContent>
           <TabsContent value="slides" className="p-4">
-            <SlidesControls />
+            <SlidesControls
+              onFileUpload={onPdfUpload}
+              isProcessing={isProcessingPdf}
+              currentSlide={currentSlide}
+              totalSlides={totalSlides}
+              onSlideChange={onSlideChange}
+            />
           </TabsContent>
         </Tabs>
       </CardContent>

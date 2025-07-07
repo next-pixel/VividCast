@@ -1,21 +1,27 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, X } from 'lucide-react';
+import { Upload, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
+interface SlidesControlsProps {
+  onFileUpload: (file: File) => void;
+  isProcessing: boolean;
+  currentSlide: number;
+  totalSlides: number;
+  onSlideChange: (slide: number) => void;
+}
 
-export function SlidesControls() {
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+export function SlidesControls({ onFileUpload, isProcessing, currentSlide, totalSlides, onSlideChange }: SlidesControlsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type === 'application/pdf') {
-      setUploadedFile(file);
+      onFileUpload(file);
     } else if (file) {
       toast({
         variant: 'destructive',
@@ -29,29 +35,28 @@ export function SlidesControls() {
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Upload Slides</Label>
-         <Input type="file" ref={fileInputRef} className="hidden" accept=".pdf" onChange={handleFileChange} />
-        <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
-          <Upload className="mr-2 h-4 w-4" />
-          Upload PDF
+        <Input type="file" ref={fileInputRef} className="hidden" accept=".pdf" onChange={handleFileChange} />
+        <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={isProcessing}>
+          {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+          {isProcessing ? 'Processing...' : 'Upload PDF'}
         </Button>
         <p className="text-xs text-muted-foreground text-center">Upload a PDF to use as slides in your video.</p>
       </div>
-      
-      {uploadedFile && (
+
+      {totalSlides > 0 && (
         <div className="space-y-2">
-            <Label>Current Slides</Label>
-            <div className="flex items-center justify-between p-2 border rounded-lg">
-                <div className='flex items-center gap-2'>
-                    <FileText className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium truncate">{uploadedFile.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{ (uploadedFile.size / (1024*1024)).toFixed(2) } MB</Badge>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setUploadedFile(null)}>
-                        <X className="h-4 w-4"/>
-                    </Button>
-                </div>
+          <Label>Slide Navigation</Label>
+          <div className="flex items-center justify-between p-2 border rounded-lg">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onSlideChange(currentSlide - 1)} disabled={currentSlide === 0}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <div className="text-sm font-medium">
+              Slide <Badge variant="secondary">{currentSlide + 1}</Badge> of <Badge variant="secondary">{totalSlides}</Badge>
             </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onSlideChange(currentSlide + 1)} disabled={currentSlide === totalSlides - 1}>
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       )}
     </div>

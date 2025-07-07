@@ -14,6 +14,8 @@ interface VideoPreviewProps {
   selectedBackground: string;
   screenStream: MediaStream | null;
   selectedLayout: string;
+  slideImages: string[];
+  currentSlide: number;
 }
 
 function formatTime(seconds: number) {
@@ -23,7 +25,18 @@ function formatTime(seconds: number) {
     return `${h}:${m}:${s}`;
 }
 
-export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRecordingComplete, selectedBackground, screenStream, selectedLayout }: VideoPreviewProps) {
+export function VideoPreview({
+  effects,
+  isRecording,
+  isPaused,
+  elapsedTime,
+  onRecordingComplete,
+  selectedBackground,
+  screenStream,
+  selectedLayout,
+  slideImages,
+  currentSlide,
+}: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -33,7 +46,7 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
   
   const effectsRef = useRef(effects);
   const layoutRef = useRef(selectedLayout);
-  const backgroundRef = useRef(selectedBackground);
+  const slideImageRef = useRef<HTMLImageElement | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -41,8 +54,22 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
   useEffect(() => {
     effectsRef.current = effects;
     layoutRef.current = selectedLayout;
-    backgroundRef.current = selectedBackground;
-  }, [effects, selectedLayout, selectedBackground]);
+  }, [effects, selectedLayout]);
+
+  useEffect(() => {
+    if (slideImages.length > 0 && currentSlide < slideImages.length) {
+      const img = new Image();
+      img.onload = () => {
+        slideImageRef.current = img;
+      };
+      img.onerror = () => {
+        slideImageRef.current = null;
+      };
+      img.src = slideImages[currentSlide];
+    } else {
+      slideImageRef.current = null;
+    }
+  }, [slideImages, currentSlide]);
   
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -105,33 +132,43 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
       const currentLayout = layoutRef.current;
       const camReady = video.readyState >= 2;
       const screenReady = screenStream && screenVideo && screenVideo.readyState >= 2;
+      const slideReady = slideImageRef.current?.complete && slideImageRef.current.naturalHeight !== 0;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.filter = `blur(${currentEffects.blur}px) hue-rotate(${currentEffects.hue}deg) opacity(${currentEffects.opacity}%)`;
 
       const drawCam = (x: number, y: number, w: number, h: number) => { if (camReady) ctx.drawImage(video, x, y, w, h); };
       const drawScreen = (x: number, y: number, w: number, h: number) => { if (screenReady) ctx.drawImage(screenVideo, x, y, w, h); };
+      const drawSlide = (x: number, y: number, w: number, h: number) => { if (slideReady) ctx.drawImage(slideImageRef.current!, x, y, w, h); };
+      
+      const drawPresentation = slideReady ? drawSlide : drawScreen;
+      const isPresenting = slideReady || screenReady;
 
-      if (screenReady) {
+      if (isPresenting) {
         switch (currentLayout) {
           case 'full-screen':
-            drawScreen(0, 0, canvas.width, canvas.height);
+            drawPresentation(0, 0, canvas.width, canvas.height);
             break;
           case 'picture-in-picture':
-            drawScreen(0, 0, canvas.width, canvas.height);
+            drawPresentation(0, 0, canvas.width, canvas.height);
             const pipWidth = canvas.width / 4;
             const pipHeight = pipWidth * (video.videoHeight / video.videoWidth || 9/16);
             drawCam(canvas.width - pipWidth - 20, canvas.height - pipHeight - 20, pipWidth, pipHeight);
             break;
           case 'side-by-side':
             drawCam(0, 0, canvas.width / 2, canvas.height);
-            drawScreen(canvas.width / 2, 0, canvas.width / 2, canvas.height);
+            drawPresentation(canvas.width / 2, 0, canvas.width / 2, canvas.height);
             break;
           case 'presenter':
             drawCam(0, 0, canvas.width, canvas.height);
-            const screenPipWidth = canvas.width / 4;
-            const screenPipHeight = screenPipWidth * (screenVideo.videoHeight / screenVideo.videoWidth || 9/16);
-            drawScreen(canvas.width - screenPipWidth - 20, canvas.height - screenPipHeight - 20, screenPipWidth, screenPipHeight);
+            const presentationAsset = slideReady ? slideImageRef.current! : (screenReady ? screenVideo! : null);
+            if (presentationAsset) {
+                const assetWidth = 'videoWidth' in presentationAsset ? presentationAsset.videoWidth : presentationAsset.width;
+                const assetHeight = 'videoHeight' in presentationAsset ? presentationAsset.videoHeight : presentationAsset.height;
+                const screenPipWidth = canvas.width / 4;
+                const screenPipHeight = screenPipWidth * (assetHeight / assetWidth || 9/16);
+                drawPresentation(canvas.width - screenPipWidth - 20, canvas.height - screenPipHeight - 20, screenPipWidth, screenPipHeight);
+            }
             break;
           default:
             drawCam(0, 0, canvas.width, canvas.height);
@@ -171,8 +208,14 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
       renderIntervalIdRef.current = window.setInterval(render, 1000 / 30); // 30 FPS
     };
     
-    video.addEventListener('canplay', startRenderLoop);
-    screenVideo?.addEventListener('canplay', startRenderLoop);
+    const handleCanPlay = () => {
+        if (!renderIntervalIdRef.current) {
+            startRenderLoop();
+        }
+    }
+
+    video.addEventListener('canplay', handleCanPlay);
+    screenVideo?.addEventListener('canplay', handleCanPlay);
 
     if (video.readyState >= 3) {
       startRenderLoop();
@@ -183,8 +226,8 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
         clearInterval(renderIntervalIdRef.current);
         renderIntervalIdRef.current = undefined;
       }
-      video.removeEventListener('canplay', startRenderLoop);
-      screenVideo?.removeEventListener('canplay', startRenderLoop);
+      video.removeEventListener('canplay', handleCanPlay);
+      screenVideo?.removeEventListener('canplay', handleCanPlay);
     };
   }, [hasCameraPermission, screenStream]);
 
