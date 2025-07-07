@@ -78,6 +78,8 @@ export function VideoPreview({
   const [isDragging, setIsDragging] = useState(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
 
+  const [audioLevel, setAudioLevel] = useState(0);
+
   useEffect(() => {
     // This effect runs only once on mount to initialize the segmenter
     if (segmentationRef.current) return;
@@ -224,6 +226,54 @@ export function VideoPreview({
       };
     }
   }, []);
+
+  useEffect(() => {
+    // If not recording or paused, do nothing and ensure cleanup happens.
+    if (!isRecording || isPaused || isMuted) {
+      setAudioLevel(0);
+      return;
+    }
+
+    const audioTracks = streamRef.current?.getAudioTracks();
+    if (!streamRef.current || !audioTracks || audioTracks.length === 0) {
+      setAudioLevel(0);
+      return;
+    }
+
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    const source = audioContext.createMediaStreamSource(streamRef.current!);
+    source.connect(analyser);
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    let animationFrameId: number;
+
+    const analyse = () => {
+      analyser.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (const amplitude of dataArray) {
+        sum += amplitude;
+      }
+      const avg = sum / bufferLength;
+      const level = Math.min(1, avg / 100);
+      setAudioLevel(level);
+      animationFrameId = requestAnimationFrame(analyse);
+    };
+    
+    analyse();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      source.disconnect();
+      analyser.disconnect();
+      if (audioContext.state !== 'closed') {
+        audioContext.close();
+      }
+      setAudioLevel(0);
+    };
+  }, [isRecording, isPaused, isMuted, selectedDeviceId]);
 
   useEffect(() => {
     if (!selectedDeviceId) return;
@@ -690,7 +740,10 @@ export function VideoPreview({
       
        {isRecording && (
         <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm z-10">
-          <span className={cn("h-3 w-3 rounded-full bg-red-500", { 'animate-pulse': !isPaused })} />
+          <div
+            className="h-3 w-3 rounded-full bg-red-500 transition-transform duration-75"
+            style={{ transform: `scale(${isPaused ? 1 : 1 + audioLevel * 0.8})` }}
+          />
           <span>{isPaused ? "Paused" : "REC"}</span>
           <span className="font-mono">{formatTime(elapsedTime)}</span>
         </div>
