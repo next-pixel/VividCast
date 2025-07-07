@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Square, Video, Scaling, Pause, Mic, MicOff, Camera } from 'lucide-react';
+import { Play, Square, Scaling, Pause, Mic, MicOff, Camera, Expand, Shrink } from 'lucide-react';
 
 interface ControlsProps {
   isRecording: boolean;
@@ -16,6 +16,8 @@ interface ControlsProps {
   videoDevices: MediaDeviceInfo[];
   selectedDeviceId: string;
   onCameraChange: (deviceId: string) => void;
+  isFullscreen: boolean;
+  onToggleFullScreen: () => void;
 }
 
 export function Controls({ 
@@ -30,7 +32,9 @@ export function Controls({
   onToggleMute,
   videoDevices,
   selectedDeviceId,
-  onCameraChange
+  onCameraChange,
+  isFullscreen,
+  onToggleFullScreen
 }: ControlsProps) {
   const aspectRatios = [
     { value: '16/9', label: 'Landscape (16:9)' },
@@ -70,6 +74,10 @@ export function Controls({
 
              <Button size="icon" variant="outline" onClick={onToggleMute} className="bg-card">
                 {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </Button>
+
+            <Button size="icon" variant="outline" onClick={onToggleFullScreen} className="bg-card">
+              {isFullscreen ? <Shrink className="h-5 w-5" /> : <Expand className="h-5 w-5" />}
             </Button>
         </div>
 

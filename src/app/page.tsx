@@ -64,6 +64,9 @@ export default function VividCastPage() {
     opacity: 80,
     size: 15,
   })
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+
 
   const { toast } = useToast();
 
@@ -83,6 +86,32 @@ export default function VividCastPage() {
       }
     };
     getDevices();
+  }, []);
+  
+  const toggleFullScreen = () => {
+    if (!videoContainerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      videoContainerRef.current.requestFullscreen().catch(err => {
+        toast({
+          variant: 'destructive',
+          title: 'Fullscreen Error',
+          description: 'Your browser may not support fullscreen mode.',
+        });
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
   const handlePdfUpload = async (file: File) => {
@@ -247,6 +276,7 @@ export default function VividCastPage() {
 
         <div className="flex-1 flex flex-col gap-6 items-center w-full max-w-6xl mx-auto">
           <div 
+            ref={videoContainerRef}
             className="relative w-full rounded-2xl overflow-hidden"
             style={{ 
               aspectRatio: `${arW} / ${arH}`,
@@ -294,6 +324,8 @@ export default function VividCastPage() {
             videoDevices={videoDevices}
             selectedDeviceId={selectedDeviceId}
             onCameraChange={setSelectedDeviceId}
+            isFullscreen={isFullscreen}
+            onToggleFullScreen={toggleFullScreen}
           />
         </div>
       </main>
