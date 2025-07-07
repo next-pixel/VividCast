@@ -207,6 +207,8 @@ export default function VividCastPage() {
     }
     return () => clearInterval(interval);
   }, [isRecording, isPaused]);
+  
+  const [arW, arH] = aspectRatio.split('/').map(Number);
 
   return (
     <div className="bg-background min-h-screen w-full flex flex-col font-sans">
@@ -247,7 +249,7 @@ export default function VividCastPage() {
           <div 
             className="relative w-full rounded-2xl overflow-hidden"
             style={{ 
-              aspectRatio: aspectRatio,
+              aspectRatio: `${arW} / ${arH}`,
               maxHeight: 'calc(100vh - 250px)'
             }}
           >

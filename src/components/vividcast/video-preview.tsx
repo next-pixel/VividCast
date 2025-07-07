@@ -458,7 +458,7 @@ export function VideoPreview({
     >
       <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
       <video ref={screenVideoRef} autoPlay playsInline muted className="hidden"></video>
-      <canvas ref={canvasRef} className={cn('w-full h-full object-contain', { 'invisible': hasCameraPermission !== true })}></canvas>
+      <canvas ref={canvasRef} className={cn('w-full h-full', { 'invisible': hasCameraPermission !== true })}></canvas>
       
        {isRecording && (
         <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm z-10">
