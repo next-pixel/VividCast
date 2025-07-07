@@ -82,7 +82,9 @@ export function VideoPreview({ effects }: VideoPreviewProps) {
       animationFrameIdRef.current = requestAnimationFrame(render);
     };
     
-    const handleMetadataLoaded = () => {
+    const handleCanPlay = () => {
+        video.play().catch(e => console.error("Error playing video:", e));
+        
         if (video.videoWidth > 0) {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -93,16 +95,18 @@ export function VideoPreview({ effects }: VideoPreviewProps) {
         }
     };
 
-    video.addEventListener('loadedmetadata', handleMetadataLoaded);
-    if (video.readyState >= video.HAVE_METADATA) {
-      handleMetadataLoaded();
+    video.addEventListener('canplay', handleCanPlay);
+    
+    // Fallback if event was already fired
+    if (video.readyState >= video.HAVE_ENOUGH_DATA) {
+      handleCanPlay();
     }
 
     return () => {
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
       }
-      video.removeEventListener('loadedmetadata', handleMetadataLoaded);
+      video.removeEventListener('canplay', handleCanPlay);
     };
   }, [hasCameraPermission]);
 
