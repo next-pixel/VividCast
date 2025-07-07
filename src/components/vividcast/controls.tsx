@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Square, Video, Zap, AspectRatio } from 'lucide-react';
+import { Play, Square, Video, Zap, Scaling } from 'lucide-react';
 
 interface ControlsProps {
   isRecording: boolean;
@@ -68,7 +68,7 @@ export function Controls({ isRecording, onStartRecording, onStopRecording, aspec
             </Select>
             <Select value={aspectRatio} onValueChange={onAspectRatioChange}>
                 <SelectTrigger className="w-[120px]">
-                    <AspectRatio className="h-4 w-4 mr-2" />
+                    <Scaling className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Aspect Ratio" />
                 </SelectTrigger>
                 <SelectContent>
