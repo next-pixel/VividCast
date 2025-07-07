@@ -223,12 +223,20 @@ export default function VividCastPage() {
         setScreenStream(stream);
         setIsSharingScreen(true);
       } catch (err) {
-        console.error("Error sharing screen:", err);
-        if ((err as Error).name !== 'NotAllowedError') {
+        const error = err as Error;
+        console.error("Error sharing screen:", error);
+
+        if (error.message.includes('disallowed by permissions policy')) {
+          toast({
+            variant: 'destructive',
+            title: 'Screen Share Unavailable',
+            description: 'This feature is disabled in the current environment. Please try opening the app in a standalone window.',
+          });
+        } else if (error.name !== 'NotAllowedError') { // User clicked 'cancel' in the permission prompt
           toast({
             variant: 'destructive',
             title: 'Screen Share Failed',
-            description: 'Could not start screen sharing. Please check permissions.',
+            description: 'Could not start screen sharing. Please check your browser permissions.',
           });
         }
       }
