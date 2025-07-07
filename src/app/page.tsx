@@ -10,6 +10,7 @@ import { TeleprompterDisplay } from '@/components/vividcast/teleprompter-display
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjs from 'pdfjs-dist';
+import { UITour, type TourStep } from '@/components/vividcast/ui-tour';
 
 if (typeof window !== 'undefined') {
   pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.mjs`;
@@ -83,10 +84,22 @@ export default function VividCastPage() {
   });
   const [sideBySideSettings, setSideBySideSettings] = useState<SideBySideSettings>({ split: 50 });
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isTourActive, setIsTourActive] = useState(false);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    // This effect runs once on the client after hydration
+    const tourCompleted = localStorage.getItem('vividcast-tour-completed');
+    if (!tourCompleted) {
+      // Use a timeout to ensure all elements are rendered and available
+      setTimeout(() => {
+        setIsTourActive(true);
+      }, 500);
+    }
+  }, []);
 
   useEffect(() => {
     const getDevices = async () => {
@@ -260,13 +273,42 @@ export default function VividCastPage() {
     return () => clearInterval(interval);
   }, [isRecording, isPaused]);
   
+  const handleTourComplete = useCallback(() => {
+    localStorage.setItem('vividcast-tour-completed', 'true');
+    setIsTourActive(false);
+  }, []);
+
+  const tourSteps: TourStep[] = [
+    {
+      selector: '#settings-panel-wrapper',
+      title: '1. Configure Your Scene',
+      content: 'All your controls are here. Set up your teleprompter, add slides, change layouts, and much more.',
+      side: 'right',
+      align: 'start',
+    },
+    {
+      selector: '#video-preview-wrapper',
+      title: '2. See Your Preview',
+      content: 'This is your main canvas. See how your final video will look with all layouts and effects applied in real-time.',
+      side: 'bottom',
+      align: 'center',
+    },
+    {
+      selector: '#controls-bar',
+      title: '3. Start Recording',
+      content: 'When you\'re ready, use these controls to select your camera, change aspect ratio, and start/stop recording.',
+      side: 'top',
+      align: 'center',
+    },
+  ];
+
   const [arW, arH] = aspectRatio.split('/').map(Number);
 
   return (
     <div className="bg-background min-h-screen w-full flex flex-col font-sans">
       <Header videoUrl={recordedVideoUrl} />
       <main className="flex-1 container mx-auto p-4 md:p-6 lg:p-8 flex flex-col lg:flex-row items-start gap-8">
-        <div className="w-full lg:w-96 lg:sticky lg:top-8">
+        <div id="settings-panel-wrapper" className="w-full lg:w-96 lg:sticky lg:top-8">
           <SettingsPanel
             // Teleprompter
             setTeleprompterText={setTeleprompterText}
@@ -303,6 +345,7 @@ export default function VividCastPage() {
 
         <div className="flex-1 flex flex-col gap-6 items-center w-full max-w-6xl mx-auto">
           <div 
+            id="video-preview-wrapper"
             ref={videoContainerRef}
             className="relative w-full rounded-2xl overflow-hidden bg-muted"
             style={{ 
@@ -358,6 +401,7 @@ export default function VividCastPage() {
           />
         </div>
       </main>
+      <UITour steps={tourSteps} isOpen={isTourActive} onComplete={handleTourComplete} />
     </div>
   );
 }

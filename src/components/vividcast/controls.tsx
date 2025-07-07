@@ -47,7 +47,7 @@ export function Controls({
   ];
 
   return (
-    <div className="w-full flex items-center justify-center">
+    <div id="controls-bar" className="w-full flex items-center justify-center">
       <div className="flex items-center justify-center flex-wrap gap-4 p-3 bg-card rounded-2xl shadow-lg border">
         {/* Device Controls */}
         <div className="flex items-center gap-2">
