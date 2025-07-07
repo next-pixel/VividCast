@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -47,11 +48,10 @@ export type LogoSettings = {
 }
 
 export type PipShape = 'rectangle' | 'rounded-square' | 'circle';
-export type PipPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 export type PipSettings = {
   shape: PipShape;
-  position: PipPosition;
+  position: { x: number; y: number }; // In percentage
   size: number;
   opacity: number;
 };
@@ -90,7 +90,7 @@ export default function VividCastPage() {
   })
   const [pipSettings, setPipSettings] = useState<PipSettings>({
     shape: 'rectangle',
-    position: 'bottom-right',
+    position: { x: 74, y: 74 }, // Default to bottom-rightish
     size: 25,
     opacity: 100,
   });
@@ -424,6 +424,7 @@ export default function VividCastPage() {
               selectedDeviceId={selectedDeviceId}
               logoSettings={logoSettings}
               pipSettings={pipSettings}
+              onPipSettingsChange={setPipSettings}
               sideBySideSettings={sideBySideSettings}
               aspectRatio={aspectRatio}
             />

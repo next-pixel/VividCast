@@ -22,6 +22,7 @@ interface VideoPreviewProps {
   selectedDeviceId: string;
   logoSettings: LogoSettings;
   pipSettings: PipSettings;
+  onPipSettingsChange: (settings: PipSettings) => void;
   sideBySideSettings: SideBySideSettings;
   aspectRatio: string;
 }
@@ -48,6 +49,7 @@ export function VideoPreview({
   selectedDeviceId,
   logoSettings,
   pipSettings,
+  onPipSettingsChange,
   sideBySideSettings,
   aspectRatio,
 }: VideoPreviewProps) {
@@ -71,6 +73,10 @@ export function VideoPreview({
   const [isSegmenterReady, setIsSegmenterReady] = useState(false);
   const lastFrameTimeRef = useRef(0);
   const animationFrameId = useRef<number>();
+
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     // This effect runs only once on mount to initialize the segmenter
@@ -385,15 +391,8 @@ export function VideoPreview({
             const pipWidth = canvas.width * (pipSettings.size / 100);
             const camAspectRatio = video.videoHeight ? video.videoWidth / video.videoHeight : 16/9;
             const pipHeight = pipWidth / camAspectRatio;
-            const padding = 20;
-
-            let pipX = 0, pipY = 0;
-            switch(pipSettings.position) {
-              case 'top-left': pipX = padding; pipY = padding; break;
-              case 'top-right': pipX = canvas.width - pipWidth - padding; pipY = padding; break;
-              case 'bottom-left': pipX = padding; pipY = canvas.height - pipHeight - padding; break;
-              case 'bottom-right': pipX = canvas.width - pipWidth - padding; pipY = canvas.height - pipHeight - padding; break;
-            }
+            const pipX = canvas.width * (pipSettings.position.x / 100);
+            const pipY = canvas.height * (pipSettings.position.y / 100);
 
             ctx.save();
             ctx.globalAlpha = pipSettings.opacity / 100;
@@ -465,7 +464,7 @@ export function VideoPreview({
     return () => {
       if(animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
-  }, [hasCameraPermission, screenStream, slideImages.length, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, sideBySideSettings, aspectRatio, selectedBackground, backgroundImage]);
+  }, [hasCameraPermission, screenStream, slideImages.length, isSegmenterReady, effects, selectedLayout, pipSettings, logoSettings, sideBySideSettings, aspectRatio, selectedBackground, backgroundImage]);
 
   useEffect(() => {
     if (isRecording) {
@@ -530,11 +529,126 @@ export function VideoPreview({
     }
   }, [isPaused]);
 
+  const getMousePos = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!previewContainerRef.current) return { x: 0, y: 0 };
+    const rect = previewContainerRef.current.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (selectedLayout !== 'picture-in-picture') return;
+
+    const canvas = canvasRef.current;
+    if (!canvas || !videoRef.current) return;
+
+    const container = previewContainerRef.current;
+    if (!container) return;
+
+    const scaleX = canvas.width / container.clientWidth;
+    const scaleY = canvas.height / container.clientHeight;
+
+    const mousePos = getMousePos(e);
+    const mouseX = mousePos.x * scaleX;
+    const mouseY = mousePos.y * scaleY;
+
+    const pipWidth = canvas.width * (pipSettings.size / 100);
+    const camAspectRatio = videoRef.current.videoHeight ? videoRef.current.videoWidth / videoRef.current.videoHeight : 16/9;
+    const pipHeight = pipWidth / camAspectRatio;
+    const pipX = canvas.width * (pipSettings.position.x / 100);
+    const pipY = canvas.height * (pipSettings.position.y / 100);
+
+    if (mouseX > pipX && mouseX < pipX + pipWidth && mouseY > pipY && mouseY < pipY + pipHeight) {
+      setIsDragging(true);
+      dragOffsetRef.current = {
+        x: mouseX - pipX,
+        y: mouseY - pipY,
+      };
+      container.style.cursor = 'grabbing';
+    }
+  }, [selectedLayout, getMousePos, pipSettings]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false);
+      if (previewContainerRef.current) {
+        // We set the cursor based on hover state in mousemove
+        previewContainerRef.current.style.cursor = 'grab';
+      }
+    }
+  }, [isDragging]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false);
+      if (previewContainerRef.current) {
+        previewContainerRef.current.style.cursor = 'default';
+      }
+    }
+  }, [isDragging]);
+  
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const container = previewContainerRef.current;
+    if (!container) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas || !videoRef.current) return;
+    
+    const scaleX = canvas.width / container.clientWidth;
+    const scaleY = canvas.height / container.clientHeight;
+    
+    const mousePos = getMousePos(e);
+    const mouseX = mousePos.x * scaleX;
+    const mouseY = mousePos.y * scaleY;
+
+    const pipWidth = canvas.width * (pipSettings.size / 100);
+    const camAspectRatio = videoRef.current.videoHeight ? videoRef.current.videoWidth / videoRef.current.videoHeight : 16/9;
+    const pipHeight = pipWidth / camAspectRatio;
+    const pipX = canvas.width * (pipSettings.position.x / 100);
+    const pipY = canvas.height * (pipSettings.position.y / 100);
+
+    if (selectedLayout === 'picture-in-picture') {
+        const isHoveringPip = mouseX > pipX && mouseX < pipX + pipWidth && mouseY > pipY && mouseY < pipY + pipHeight;
+        if (isDragging) {
+            container.style.cursor = 'grabbing';
+        } else if (isHoveringPip) {
+            container.style.cursor = 'grab';
+        } else {
+            container.style.cursor = 'default';
+        }
+    } else {
+        container.style.cursor = 'default';
+    }
+
+    if (!isDragging) return;
+
+    let newX = mouseX - dragOffsetRef.current.x;
+    let newY = mouseY - dragOffsetRef.current.y;
+
+    newX = Math.max(0, Math.min(newX, canvas.width - pipWidth));
+    newY = Math.max(0, Math.min(newY, canvas.height - pipHeight));
+
+    const newXPercent = (newX / canvas.width) * 100;
+    const newYPercent = (newY / canvas.height) * 100;
+
+    onPipSettingsChange({
+      ...pipSettings,
+      position: { x: newXPercent, y: newYPercent },
+    });
+  }, [isDragging, getMousePos, pipSettings, onPipSettingsChange, selectedLayout]);
+
   const isPresenting = screenStream || slideImages.length > 0;
   const showSegmenterLoading = !!selectedBackground && !isPresenting && !isSegmenterReady;
 
   return (
     <div 
+      ref={previewContainerRef}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       className="relative w-full h-full bg-card flex items-center justify-center overflow-hidden"
       style={{ background: selectedBackground || 'hsl(var(--muted))' }}
     >
