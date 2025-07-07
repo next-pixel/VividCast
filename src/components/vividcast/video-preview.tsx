@@ -409,10 +409,13 @@ export function VideoPreview({
             ctx.restore();
             break;
           case 'side-by-side':
-            const camWidth = canvas.width * (sideBySideSettings.split / 100);
-            const presentationWidth = canvas.width - camWidth;
+            const margin = 20; // Margin between the two sections
+            const availableWidth = canvas.width - margin;
+            const camWidth = availableWidth * (sideBySideSettings.split / 100);
+            const presentationWidth = availableWidth - camWidth;
+            
             drawCam(0, 0, camWidth, canvas.height);
-            drawPresentation(camWidth, 0, presentationWidth, canvas.height);
+            drawPresentation(camWidth + margin, 0, presentationWidth, canvas.height);
             break;
           case 'presenter':
             drawCam(0, 0, canvas.width, canvas.height);
