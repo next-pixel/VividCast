@@ -13,6 +13,7 @@ interface RightPanelProps {
   selectedLayout: string;
   setSelectedLayout: (layout: string) => void;
   setSelectedBackground: (bg: string) => void;
+  selectedBackground: string;
 }
 
 export function RightPanel({
@@ -20,7 +21,8 @@ export function RightPanel({
   setEffects,
   selectedLayout,
   setSelectedLayout,
-  setSelectedBackground
+  setSelectedBackground,
+  selectedBackground
 }: RightPanelProps) {
   return (
     <Card className="w-full max-w-sm xl:w-sm sticky top-6">
@@ -44,7 +46,7 @@ export function RightPanel({
             <LayoutControls selectedLayout={selectedLayout} onLayoutChange={setSelectedLayout} />
           </TabsContent>
           <TabsContent value="background" className="p-4">
-            <BackgroundControls onBackgroundChange={setSelectedBackground}/>
+            <BackgroundControls onBackgroundChange={setSelectedBackground} selectedBackground={selectedBackground} />
           </TabsContent>
           <TabsContent value="effects" className="p-4">
             <EffectsControls effects={effects} onEffectsChange={setEffects} />

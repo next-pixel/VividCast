@@ -9,9 +9,10 @@ interface VideoPreviewProps {
   effects: Effects;
   isRecording: boolean;
   onRecordingComplete: (url: string) => void;
+  selectedBackground: string;
 }
 
-export function VideoPreview({ effects, isRecording, onRecordingComplete }: VideoPreviewProps) {
+export function VideoPreview({ effects, isRecording, onRecordingComplete, selectedBackground }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameIdRef = useRef<number>();
@@ -81,6 +82,7 @@ export function VideoPreview({ effects, isRecording, onRecordingComplete }: Vide
       ctx.filter = `blur(${currentEffects.blur}px) hue-rotate(${currentEffects.hue}deg) opacity(${currentEffects.opacity}%)`;
       
       if (video.readyState >= video.HAVE_CURRENT_DATA) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       }
       animationFrameIdRef.current = requestAnimationFrame(render);
@@ -146,7 +148,10 @@ export function VideoPreview({ effects, isRecording, onRecordingComplete }: Vide
   }, [isRecording, onRecordingComplete]);
 
   return (
-    <div className="relative w-full aspect-video bg-card-foreground rounded-lg overflow-hidden shadow-lg flex items-center justify-center">
+    <div 
+      className="relative w-full aspect-video rounded-lg overflow-hidden shadow-lg flex items-center justify-center"
+      style={{ background: selectedBackground || 'hsl(var(--card-foreground))' }}
+    >
       <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
       <canvas ref={canvasRef} className={cn('w-full h-full object-cover', { 'invisible': hasCameraPermission !== true })}></canvas>
       

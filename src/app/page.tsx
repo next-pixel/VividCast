@@ -69,6 +69,7 @@ export default function VividCastPage() {
               effects={effects}
               isRecording={isRecording}
               onRecordingComplete={setRecordedVideoUrl}
+              selectedBackground={selectedBackground}
             />
             {countdown > 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -97,6 +98,7 @@ export default function VividCastPage() {
             selectedLayout={selectedLayout}
             setSelectedLayout={setSelectedLayout}
             setSelectedBackground={setSelectedBackground}
+            selectedBackground={selectedBackground}
           />
         </div>
       </main>
