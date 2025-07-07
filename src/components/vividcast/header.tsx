@@ -31,14 +31,12 @@ export function Header({ videoUrl }: HeaderProps) {
           <h1 className="text-2xl font-bold text-foreground">VividCast</h1>
         </div>
         <div className="flex items-center gap-2">
-            <Link href="/how-to-use" passHref>
-              <Button variant="ghost" size="icon" asChild>
-                <Link href="/how-to-use">
-                  <HelpCircle className="h-5 w-5" />
-                  <span className="sr-only">How to Use</span>
-                </Link>
-              </Button>
-            </Link>
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/how-to-use">
+                <HelpCircle className="h-5 w-5" />
+                <span className="sr-only">How to Use</span>
+              </Link>
+            </Button>
             <Button
                 variant="ghost"
                 size="icon"
