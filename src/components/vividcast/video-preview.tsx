@@ -27,17 +27,22 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
   const videoRef = useRef<HTMLVideoElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameIdRef = useRef<number>();
+  const renderIntervalIdRef = useRef<number>();
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const { toast } = useToast();
+  
   const effectsRef = useRef(effects);
+  const layoutRef = useRef(selectedLayout);
+  const backgroundRef = useRef(selectedBackground);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     effectsRef.current = effects;
-  }, [effects]);
+    layoutRef.current = selectedLayout;
+    backgroundRef.current = selectedBackground;
+  }, [effects, selectedLayout, selectedBackground]);
   
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -53,7 +58,7 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
       }
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720 },
+          video: { width: 1920, height: 1080 },
           audio: true,
         });
         setHasCameraPermission(true);
@@ -97,86 +102,117 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
     
     const render = () => {
       const currentEffects = effectsRef.current;
+      const currentLayout = layoutRef.current;
       const camReady = video.readyState >= 2;
       const screenReady = screenStream && screenVideo && screenVideo.readyState >= 2;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.filter = `blur(${currentEffects.blur}px) hue-rotate(${currentEffects.hue}deg) opacity(${currentEffects.opacity}%)`;
 
-      if (screenReady) {
-          const drawCam = (x:number, y:number, w:number, h:number) => { if (camReady) ctx.drawImage(video, x, y, w, h); };
-          const drawScreen = (x:number, y:number, w:number, h:number) => { if (screenReady) ctx.drawImage(screenVideo, x, y, w, h); };
+      const drawCam = (x: number, y: number, w: number, h: number) => { if (camReady) ctx.drawImage(video, x, y, w, h); };
+      const drawScreen = (x: number, y: number, w: number, h: number) => { if (screenReady) ctx.drawImage(screenVideo, x, y, w, h); };
 
-          switch (selectedLayout) {
-              case 'picture-in-picture':
-              case 'presenter':
-                  drawScreen(0, 0, canvas.width, canvas.height);
-                  const pipWidth = canvas.width / 4;
-                  const pipHeight = pipWidth * (video.videoHeight / video.videoWidth) || pipWidth * (9/16);
-                  drawCam(canvas.width - pipWidth - 20, canvas.height - pipHeight - 20, pipWidth, pipHeight);
-                  break;
-              case 'side-by-side':
-                  drawScreen(0, 0, canvas.width / 2, canvas.height);
-                  drawCam(canvas.width / 2, 0, canvas.width / 2, canvas.height);
-                  break;
-              case 'full-screen':
-              default:
-                  drawScreen(0, 0, canvas.width, canvas.height);
-                  break;
-          }
+      if (screenReady) {
+        switch (currentLayout) {
+          case 'full-screen':
+            drawScreen(0, 0, canvas.width, canvas.height);
+            break;
+          case 'picture-in-picture':
+            drawScreen(0, 0, canvas.width, canvas.height);
+            const pipWidth = canvas.width / 4;
+            const pipHeight = pipWidth * (video.videoHeight / video.videoWidth || 9/16);
+            drawCam(canvas.width - pipWidth - 20, canvas.height - pipHeight - 20, pipWidth, pipHeight);
+            break;
+          case 'side-by-side':
+            drawCam(0, 0, canvas.width / 2, canvas.height);
+            drawScreen(canvas.width / 2, 0, canvas.width / 2, canvas.height);
+            break;
+          case 'presenter':
+            drawCam(0, 0, canvas.width, canvas.height);
+            const screenPipWidth = canvas.width / 4;
+            const screenPipHeight = screenPipWidth * (screenVideo.videoHeight / screenVideo.videoWidth || 9/16);
+            drawScreen(canvas.width - screenPipWidth - 20, canvas.height - screenPipHeight - 20, screenPipWidth, screenPipHeight);
+            break;
+          default:
+            drawCam(0, 0, canvas.width, canvas.height);
+            break;
+        }
       } else if (camReady) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        drawCam(0, 0, canvas.width, canvas.height);
       }
       
       ctx.filter = 'none';
-      animationFrameIdRef.current = requestAnimationFrame(render);
     };
     
     const startRenderLoop = () => {
-        if (!animationFrameIdRef.current) {
-            video.play().catch(e => console.error("Error playing video:", e));
-            if (video.videoWidth > 0) {
-                canvas.width = 1280;
-                canvas.height = 720;
+      if (renderIntervalIdRef.current) return;
+      video.play().catch(e => console.error("Error playing video:", e));
+
+      const setCanvasSize = () => {
+          if (video.videoWidth > 0) {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = video.videoWidth;
+            tempCanvas.height = video.videoHeight;
+            if (tempCtx) {
+                 tempCtx.drawImage(video, 0, 0);
+                 canvas.width = tempCanvas.width;
+                 canvas.height = tempCanvas.height;
             }
-            render();
-        }
+          }
+      }
+
+      if (video.videoWidth > 0) {
+        setCanvasSize();
+      } else {
+        video.addEventListener('loadedmetadata', setCanvasSize, { once: true });
+      }
+
+      renderIntervalIdRef.current = window.setInterval(render, 1000 / 30); // 30 FPS
     };
     
     video.addEventListener('canplay', startRenderLoop);
     screenVideo?.addEventListener('canplay', startRenderLoop);
-    
-    if (video.readyState >= 3) { // HAVE_FUTURE_DATA
+
+    if (video.readyState >= 3) {
       startRenderLoop();
     }
 
     return () => {
-      if (animationFrameIdRef.current) {
-        cancelAnimationFrame(animationFrameIdRef.current);
-        animationFrameIdRef.current = undefined;
+      if (renderIntervalIdRef.current) {
+        clearInterval(renderIntervalIdRef.current);
+        renderIntervalIdRef.current = undefined;
       }
       video.removeEventListener('canplay', startRenderLoop);
       screenVideo?.removeEventListener('canplay', startRenderLoop);
     };
-  }, [hasCameraPermission, screenStream, selectedLayout]);
+  }, [hasCameraPermission, screenStream]);
 
   useEffect(() => {
     if (isRecording) {
         if (mediaRecorderRef.current) return;
         recordedChunksRef.current = [];
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas || canvas.width === 0 || canvas.height === 0) {
+          console.error("Canvas not ready for recording");
+          toast({
+            variant: "destructive",
+            title: "Recording Error",
+            description: "Video preview is not ready. Please try again."
+          });
+          return;
+        }
 
         const stream = canvas.captureStream(30);
         
         const cameraAudioTracks = (videoRef.current?.srcObject as MediaStream)?.getAudioTracks();
         if (cameraAudioTracks && cameraAudioTracks.length > 0) {
-            stream.addTrack(cameraAudioTracks[0]);
+            stream.addTrack(cameraAudioTracks[0].clone());
         }
         
         const screenAudioTracks = screenStream?.getAudioTracks();
         if (screenAudioTracks && screenAudioTracks.length > 0) {
-            stream.addTrack(screenAudioTracks[0]);
+            stream.addTrack(screenAudioTracks[0].clone());
         }
 
         mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
@@ -191,6 +227,7 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
             const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
             const url = URL.createObjectURL(blob);
             onRecordingComplete(url);
+            stream.getTracks().forEach(track => track.stop());
             mediaRecorderRef.current = null;
         };
 
@@ -200,7 +237,7 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
             mediaRecorderRef.current?.stop();
         }
     }
-  }, [isRecording, onRecordingComplete, screenStream]);
+  }, [isRecording, onRecordingComplete, screenStream, toast]);
 
    useEffect(() => {
     if (!mediaRecorderRef.current) return;
