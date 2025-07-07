@@ -5,6 +5,7 @@ import { Upload, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { Input } from '@/components/ui/input';
 
 interface BackgroundControlsProps {
     onBackgroundChange: (bg: string) => void;
