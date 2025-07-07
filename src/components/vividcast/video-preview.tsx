@@ -322,6 +322,29 @@ export function VideoPreview({
         }
         ctx.drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dw, dh);
       }
+
+      const drawContained = (source: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => {
+        const sw = (source as any).videoWidth || (source as any).naturalWidth || (source as any).width || 0;
+        const sh = (source as any).videoHeight || (source as any).naturalHeight || (source as any).height || 0;
+        if (!sw || !sh) return;
+
+        const sRatio = sw / sh;
+        const dRatio = dw / dh;
+
+        let newWidth = dw;
+        let newHeight = dh;
+
+        if (sRatio > dRatio) {
+            newHeight = dw / sRatio;
+        } else {
+            newWidth = dh * sRatio;
+        }
+        
+        const newDx = dx + (dw - newWidth) / 2;
+        const newDy = dy + (dh - newHeight) / 2;
+
+        ctx.drawImage(source, 0, 0, sw, sh, newDx, newDy, newWidth, newHeight);
+      }
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -421,11 +444,17 @@ export function VideoPreview({
             drawCam(0, 0, canvas.width, canvas.height);
             const presentationAsset = slideReady ? slideImageRef.current : (screenReady ? screenVideo : null);
             if (presentationAsset) {
-                const assetWidth = 'videoWidth' in presentationAsset ? presentationAsset.videoWidth : presentationAsset.width;
-                const assetHeight = 'videoHeight' in presentationAsset ? presentationAsset.videoHeight : presentationAsset.height;
-                const screenPipWidth = canvas.width / 4;
-                const screenPipHeight = screenPipWidth * (assetHeight / assetWidth || 9/16);
-                drawPresentation(canvas.width - screenPipWidth - 20, canvas.height - screenPipHeight - 20, screenPipWidth, screenPipHeight);
+                const insetWidth = canvas.width / 4;
+                const insetHeight = canvas.height / 4;
+                const insetX = canvas.width - insetWidth - 20;
+                const insetY = canvas.height - insetHeight - 20;
+                
+                // Add a semi-transparent background for the inset
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(insetX, insetY, insetWidth, insetHeight);
+
+                // Draw the presentation content contained within the box
+                drawContained(presentationAsset, insetX, insetY, insetWidth, insetHeight);
             }
             break;
           default:
