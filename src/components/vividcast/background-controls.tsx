@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Upload, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image';
 
 interface BackgroundControlsProps {
     onBackgroundChange: (bg: string) => void;
@@ -13,13 +15,38 @@ const gradients = [
   { name: 'Sunrise', value: 'linear-gradient(to top right, #ff9a9e, #fad0c4)' },
   { name: 'Sunset', value: 'linear-gradient(to top right, #ff7e5f, #feb47b)' },
   { name: 'Ocean', value: 'linear-gradient(to top right, #4facfe, #00f2fe)' },
-  { name: 'Forest', value: 'linear-gradient(to top right, #43e97b, #38f9d7)' },
   { name: 'Royal', value: 'linear-gradient(to top right, #6a11cb, #2575fc)' },
-  { name: 'Lush', value: 'linear-gradient(to top right, #ee9ca7, #ffdde1)' },
 ];
+
+const imageBackgrounds = [
+    { name: 'Office', src: 'https://placehold.co/300x200.png', hint: 'modern office' },
+    { name: 'Nature', src: 'https://placehold.co/300x200.png', hint: 'serene landscape' },
+    { name: 'Abstract', src: 'https://placehold.co/300x200.png', hint: 'abstract shapes' },
+    { name: 'Cafe', src: 'https://placehold.co/300x200.png', hint: 'cozy cafe' },
+]
 
 
 export function BackgroundControls({ onBackgroundChange, selectedBackground }: BackgroundControlsProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageUrl = e.target?.result as string;
+            onBackgroundChange(`url(${imageUrl})`);
+        };
+        reader.readAsDataURL(file);
+    } else if (file) {
+       toast({
+        variant: 'destructive',
+        title: 'Invalid File Type',
+        description: 'Please upload an image file.',
+      });
+    }
+  };
 
   const handleSelect = (src: string) => {
       onBackgroundChange(src);
@@ -29,7 +56,7 @@ export function BackgroundControls({ onBackgroundChange, selectedBackground }: B
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Presets</Label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <button 
              onClick={() => handleSelect('')}
              className={cn(
@@ -37,11 +64,12 @@ export function BackgroundControls({ onBackgroundChange, selectedBackground }: B
                 selectedBackground === '' && 'border-primary'
              )}
            >
-            <Ban className="h-8 w-8 text-muted-foreground" />
+            <Ban className="h-6 w-6 text-muted-foreground" />
+             <span className="sr-only">No background</span>
           </button>
-          {gradients.map((gradient, index) => (
+          {gradients.map((gradient) => (
             <button 
-                key={index} 
+                key={gradient.name} 
                 onClick={() => handleSelect(gradient.value)} 
                 className={cn(
                     "relative aspect-video w-full rounded-md overflow-hidden border-2 border-transparent hover:border-primary", 
@@ -55,9 +83,28 @@ export function BackgroundControls({ onBackgroundChange, selectedBackground }: B
               />
             </button>
           ))}
+           {imageBackgrounds.map((img) => (
+            <button
+                key={img.name}
+                onClick={() => handleSelect(`url(${img.src})`)}
+                className={cn(
+                    "relative aspect-video w-full rounded-md overflow-hidden border-2 border-transparent hover:border-primary", 
+                    selectedBackground === `url(${img.src})` && 'border-primary'
+                )}
+            >
+                <Image 
+                    src={img.src}
+                    alt={img.name}
+                    layout="fill"
+                    objectFit="cover"
+                    data-ai-hint={img.hint}
+                />
+            </button>
+          ))}
         </div>
       </div>
-      <Button variant="outline" className="w-full">
+      <Input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+      <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
         <Upload className="mr-2 h-4 w-4" />
         Upload Custom Background
       </Button>

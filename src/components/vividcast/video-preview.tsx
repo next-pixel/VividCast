@@ -2,8 +2,9 @@ import React, { useRef, useEffect, useState } from 'react';
 import type { Effects, LogoSettings } from '@/app/page';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { VideoOff } from 'lucide-react';
+import { VideoOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { SelfieSegmentation, Results as SegmentationResults } from '@mediapipe/selfie_segmentation';
 
 interface VideoPreviewProps {
   effects: Effects;
@@ -46,6 +47,7 @@ export function VideoPreview({
   const videoRef = useRef<HTMLVideoElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const renderIntervalIdRef = useRef<number>();
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const { toast } = useToast();
@@ -59,10 +61,67 @@ export function VideoPreview({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
 
+  const segmentationRef = useRef<SelfieSegmentation | null>(null);
+  const [isSegmenterReady, setIsSegmenterReady] = useState(false);
+  const lastFrameTimeRef = useRef(0);
+
   useEffect(() => {
     effectsRef.current = effects;
     layoutRef.current = selectedLayout;
   }, [effects, selectedLayout]);
+  
+  // Initialize Selfie Segmentation
+  useEffect(() => {
+    const onResults = (results: SegmentationResults) => {
+        if (!offscreenCanvasRef.current) return;
+        const ctx = offscreenCanvasRef.current.getContext('2d');
+        if (!ctx) return;
+        
+        offscreenCanvasRef.current.width = results.image.width;
+        offscreenCanvasRef.current.height = results.image.height;
+        
+        ctx.save();
+        ctx.clearRect(0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+        ctx.drawImage(results.segmentationMask, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+
+        ctx.globalCompositeOperation = 'source-in';
+        ctx.drawImage(results.image, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+        
+        ctx.restore();
+    };
+
+    const initializeSegmenter = async () => {
+      try {
+        const selfieSegmentationModule = await import('@mediapipe/selfie_segmentation');
+        const segmentation = new selfieSegmentationModule.SelfieSegmentation({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/${file}`,
+        });
+        segmentation.setOptions({ modelSelection: 1 });
+        segmentation.onResults(onResults);
+        
+        await segmentation.initialize();
+        segmentationRef.current = segmentation;
+        offscreenCanvasRef.current = document.createElement('canvas');
+        setIsSegmenterReady(true);
+      } catch (error) {
+        console.error("Failed to initialize selfie segmentation:", error);
+        toast({
+          variant: "destructive",
+          title: "Background Effects Unavailable",
+          description: "Could not load the background removal feature."
+        });
+      }
+    };
+
+    initializeSegmenter();
+    
+    return () => {
+        segmentationRef.current?.close();
+        segmentationRef.current = null;
+        offscreenCanvasRef.current = null;
+        setIsSegmenterReady(false);
+    };
+  }, [toast]);
 
   useEffect(() => {
     if (slideImages.length > 0 && currentSlide < slideImages.length) {
@@ -148,7 +207,7 @@ export function VideoPreview({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    const render = () => {
+    const render = async () => {
       if (!canvas || !ctx) return;
       const currentEffects = effectsRef.current;
       const currentLayout = layoutRef.current;
@@ -156,15 +215,29 @@ export function VideoPreview({
       const screenReady = screenStream && screenVideo && screenVideo.readyState >= 2;
       const slideReady = slideImageRef.current?.complete && slideImageRef.current.naturalHeight !== 0;
 
+      const isPresenting = screenStream || slideImages.length > 0;
+      const useSegmentation = isSegmenterReady && !!selectedBackground && !isPresenting;
+      
+      if (useSegmentation && camReady && video.currentTime !== lastFrameTimeRef.current) {
+        lastFrameTimeRef.current = video.currentTime;
+        await segmentationRef.current?.send({ image: video });
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.filter = `blur(${currentEffects.blur}px) hue-rotate(${currentEffects.hue}deg) opacity(${currentEffects.opacity}%)`;
+      
+      const drawCam = (x: number, y: number, w: number, h: number) => {
+        if (useSegmentation && offscreenCanvasRef.current) {
+          ctx.drawImage(offscreenCanvasRef.current, x, y, w, h);
+        } else if (camReady) {
+          ctx.drawImage(video, x, y, w, h);
+        }
+      };
 
-      const drawCam = (x: number, y: number, w: number, h: number) => { if (camReady) ctx.drawImage(video, x, y, w, h); };
       const drawScreen = (x: number, y: number, w: number, h: number) => { if (screenReady) ctx.drawImage(screenVideo, x, y, w, h); };
       const drawSlide = (x: number, y: number, w: number, h: number) => { if (slideReady) ctx.drawImage(slideImageRef.current!, x, y, w, h); };
       
       const drawPresentation = slideReady ? drawSlide : drawScreen;
-      const isPresenting = slideReady || screenReady;
 
       if (isPresenting) {
         switch (currentLayout) {
@@ -196,7 +269,7 @@ export function VideoPreview({
             drawCam(0, 0, canvas.width, canvas.height);
             break;
         }
-      } else if (camReady) {
+      } else { // Not presenting, just camera
         drawCam(0, 0, canvas.width, canvas.height);
       }
       
@@ -267,7 +340,7 @@ export function VideoPreview({
       video.removeEventListener('canplay', handleCanPlay);
       screenVideo?.removeEventListener('canplay', handleCanPlay);
     };
-  }, [hasCameraPermission, screenStream, logoSettings]);
+  }, [hasCameraPermission, screenStream, logoSettings, slideImages, selectedBackground, isSegmenterReady]);
 
   useEffect(() => {
     if (isRecording) {
@@ -330,17 +403,13 @@ export function VideoPreview({
     }
   }, [isPaused]);
 
-  // This effect ensures the hidden video elements keep playing.
   useEffect(() => {
     const keepVideoPlaying = (videoElement: HTMLVideoElement | null) => {
       if (!videoElement) return () => {};
       
       const onPause = () => {
         if (videoElement.paused) {
-          videoElement.play().catch(() => {
-            // This can happen if user hasn't interacted with the page yet.
-            // The main video logic should handle the initial play.
-          });
+          videoElement.play().catch(() => {});
         }
       };
       
@@ -356,6 +425,9 @@ export function VideoPreview({
       cleanupScreen();
     };
   }, []);
+
+  const isPresenting = screenStream || slideImages.length > 0;
+  const showSegmenterLoading = !!selectedBackground && !isPresenting && !isSegmenterReady;
 
   return (
     <div 
@@ -374,6 +446,13 @@ export function VideoPreview({
         </div>
       )}
 
+      {showSegmenterLoading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-primary-foreground bg-black/70 z-20">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p>Starting background removal...</p>
+        </div>
+      )}
+
       {hasCameraPermission === false && (
          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted-foreground bg-black/50">
             <VideoOff className="h-16 w-16" />
@@ -387,7 +466,8 @@ export function VideoPreview({
       )}
 
       {hasCameraPermission === null && (
-        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground bg-black/50">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground bg-black/50">
+          <Loader2 className="h-8 w-8 animate-spin" />
           <p>Requesting camera access...</p>
         </div>
       )}
