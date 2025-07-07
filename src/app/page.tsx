@@ -11,6 +11,15 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjs from 'pdfjs-dist';
 import { UITour, type TourStep } from '@/components/vividcast/ui-tour';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 if (typeof window !== 'undefined') {
   pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.mjs`;
@@ -85,6 +94,7 @@ export default function VividCastPage() {
   const [sideBySideSettings, setSideBySideSettings] = useState<SideBySideSettings>({ split: 50 });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isTourActive, setIsTourActive] = useState(false);
+  const [showPermissionsDialog, setShowPermissionsDialog] = useState(false);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
 
@@ -114,15 +124,11 @@ export default function VividCastPage() {
         }
       } catch (err) {
         console.error("Could not get media devices.", err);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions in your browser settings to use this app.',
-        });
+        setShowPermissionsDialog(true);
       }
     };
     getDevices();
-  }, [toast]);
+  }, []);
   
   const toggleFullScreen = () => {
     if (!videoContainerRef.current) return;
@@ -448,6 +454,20 @@ export default function VividCastPage() {
         </div>
       </main>
       <UITour steps={tourSteps} isOpen={isTourActive} onComplete={handleTourComplete} />
+      <AlertDialog open={showPermissionsDialog} onOpenChange={setShowPermissionsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permissions Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              VividCast needs access to your camera and microphone to work properly. 
+              Please grant these permissions in your browser's settings and then refresh the page.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowPermissionsDialog(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
