@@ -1,7 +1,7 @@
 import React from 'react';
 import type { TeleprompterSettings, TeleprompterPosition, Effects, LogoSettings } from '@/app/page';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Mic, Film, Layout, ImageIcon, Wand2, Award } from 'lucide-react';
 import { TeleprompterControls } from './teleprompter-controls';
 import { SlidesControls } from './slides-controls';
@@ -39,67 +39,102 @@ interface SettingsPanelProps {
   onLogoSettingsChange: (settings: LogoSettings) => void;
 }
 
-const TABS_CONFIG = [
-  { value: 'teleprompter', icon: Mic, label: 'Teleprompter' },
-  { value: 'slides', icon: Film, label: 'Slides' },
-  { value: 'layout', icon: Layout, label: 'Layout' },
-  { value: 'background', icon: ImageIcon, label: 'Background' },
-  { value: 'effects', icon: Wand2, label: 'Effects' },
-  { value: 'branding', icon: Award, label: 'Branding' },
-]
-
 export function SettingsPanel(props: SettingsPanelProps) {
   return (
     <Card className="w-full">
-      <CardContent className="p-0">
-        <Tabs defaultValue="teleprompter" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 rounded-b-none rounded-t-lg">
-            {TABS_CONFIG.map(tab => (
-              <TabsTrigger key={tab.value} value={tab.value} className="flex-col h-16 md:h-auto md:flex-row gap-1 md:gap-2">
-                <tab.icon className="h-5 w-5" />
-                <span className="hidden md:inline-block">{tab.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+      <CardContent className="p-2">
+        <Accordion type="single" collapsible defaultValue="teleprompter" className="w-full">
+          <AccordionItem value="teleprompter">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Mic className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-foreground">Teleprompter</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-4 pt-2">
+              <TeleprompterControls
+                onTextChange={props.setTeleprompterText}
+                settings={props.teleprompterSettings}
+                onSettingsChange={props.setTeleprompterSettings}
+                position={props.teleprompterPosition}
+                onPositionChange={props.onTeleprompterPositionChange}
+              />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="slides">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Film className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-foreground">Slides</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-4 pt-2">
+              <SlidesControls
+                onFileUpload={props.onPdfUpload}
+                isProcessing={props.isProcessingPdf}
+                currentSlide={props.currentSlide}
+                totalSlides={props.totalSlides}
+                onSlideChange={props.onSlideChange}
+              />
+            </AccordionContent>
+          </AccordionItem>
           
-          <TabsContent value="teleprompter" className="p-4">
-            <TeleprompterControls
-              onTextChange={props.setTeleprompterText}
-              settings={props.teleprompterSettings}
-              onSettingsChange={props.setTeleprompterSettings}
-              position={props.teleprompterPosition}
-              onPositionChange={props.onTeleprompterPositionChange}
-            />
-          </TabsContent>
-          <TabsContent value="slides" className="p-4">
-            <SlidesControls
-              onFileUpload={props.onPdfUpload}
-              isProcessing={props.isProcessingPdf}
-              currentSlide={props.currentSlide}
-              totalSlides={props.totalSlides}
-              onSlideChange={props.onSlideChange}
-            />
-          </TabsContent>
-          <TabsContent value="layout" className="p-4">
-            <LayoutControls
-              selectedLayout={props.selectedLayout}
-              onLayoutChange={props.setSelectedLayout}
-              isSharingScreen={props.isSharingScreen}
-              onToggleScreenShare={props.onToggleScreenShare}
-            />
-          </TabsContent>
-          <TabsContent value="background" className="p-4">
-            <BackgroundControls 
+          <AccordionItem value="layout">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Layout className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-foreground">Layout</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-4 pt-2">
+              <LayoutControls
+                selectedLayout={props.selectedLayout}
+                onLayoutChange={props.setSelectedLayout}
+                isSharingScreen={props.isSharingScreen}
+                onToggleScreenShare={props.onToggleScreenShare}
+              />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="background">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <ImageIcon className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-foreground">Background</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-4 pt-2">
+               <BackgroundControls 
                 onBackgroundChange={props.setSelectedBackground} 
                 selectedBackground={props.selectedBackground} />
-          </TabsContent>
-          <TabsContent value="effects" className="p-4">
-            <EffectsControls effects={props.effects} onEffectsChange={props.setEffects} />
-          </TabsContent>
-          <TabsContent value="branding" className="p-4">
-            <BrandingControls logoSettings={props.logoSettings} onLogoSettingsChange={props.onLogoSettingsChange} />
-          </TabsContent>
-        </Tabs>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="effects">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Wand2 className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-foreground">Effects</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-4 pt-2">
+              <EffectsControls effects={props.effects} onEffectsChange={props.setEffects} />
+            </AccordionContent>
+          </AccordionItem>
+          
+          <AccordionItem value="branding" className="border-b-0">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Award className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-foreground">Branding</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-4 pt-2">
+              <BrandingControls logoSettings={props.logoSettings} onLogoSettingsChange={props.onLogoSettingsChange} />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </CardContent>
     </Card>
   );
