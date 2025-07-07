@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Square, Video, Zap, Scaling, Pause } from 'lucide-react';
+import { Play, Square, Video, Zap, Scaling, Pause, Mic, MicOff, FlipHorizontal } from 'lucide-react';
 
 interface ControlsProps {
   isRecording: boolean;
@@ -12,6 +12,11 @@ interface ControlsProps {
   onTogglePause: () => void;
   aspectRatio: string;
   onAspectRatioChange: (ratio: string) => void;
+  isMuted: boolean;
+  onToggleMute: () => void;
+  videoDevices: MediaDeviceInfo[];
+  selectedDeviceId: string;
+  onCameraChange: (deviceId: string) => void;
 }
 
 export function Controls({ 
@@ -21,7 +26,12 @@ export function Controls({
   onStopRecording, 
   onTogglePause,
   aspectRatio, 
-  onAspectRatioChange 
+  onAspectRatioChange,
+  isMuted,
+  onToggleMute,
+  videoDevices,
+  selectedDeviceId,
+  onCameraChange
 }: ControlsProps) {
   const aspectRatios = [
     { value: '16/9', label: 'Landscape (16:9)' },
@@ -63,10 +73,13 @@ export function Controls({
               {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
             </Button>
           )}
+          <Button size="lg" variant="outline" onClick={onToggleMute}>
+            {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+          </Button>
         </div>
         <div className="flex flex-wrap justify-center items-center gap-2">
             <Select defaultValue="1080p">
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-auto flex-grow sm:flex-grow-0 sm:w-[120px]">
                     <Video className="h-4 w-4 mr-2" />
                     <SelectValue />
                 </SelectTrigger>
@@ -76,18 +89,19 @@ export function Controls({
                     <SelectItem value="4k">4K</SelectItem>
                 </SelectContent>
             </Select>
-            <Select defaultValue="30fps">
-                <SelectTrigger className="w-[120px]">
-                     <Zap className="h-4 w-4 mr-2" />
-                    <SelectValue />
+             <Select value={selectedDeviceId} onValueChange={onCameraChange}>
+                <SelectTrigger className="w-auto flex-grow sm:flex-grow-0 sm:w-[150px]">
+                    <FlipHorizontal className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Select Camera" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="30fps">30 fps</SelectItem>
-                    <SelectItem value="60fps">60 fps</SelectItem>
+                    {videoDevices.map((device) => (
+                        <SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${videoDevices.indexOf(device) + 1}`}</SelectItem>
+                    ))}
                 </SelectContent>
             </Select>
             <Select value={aspectRatio} onValueChange={onAspectRatioChange}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-auto flex-grow sm:flex-grow-0 sm:w-[180px]">
                     <Scaling className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Select Aspect Ratio" />
                 </SelectTrigger>

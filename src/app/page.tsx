@@ -28,6 +28,15 @@ export type TeleprompterSettings = {
 
 export type TeleprompterPosition = 'top' | 'bottom' | 'left' | 'right';
 
+export type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+export type LogoSettings = {
+  src: string | null;
+  position: LogoPosition;
+  opacity: number;
+  size: number;
+}
+
 export default function VividCastPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -46,8 +55,36 @@ export default function VividCastPage() {
   const [slideImages, setSlideImages] = useState<string[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  
+  const [isMuted, setIsMuted] = useState(false);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [logoSettings, setLogoSettings] = useState<LogoSettings>({
+    src: null,
+    position: 'bottom-right',
+    opacity: 80,
+    size: 15,
+  })
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    const getDevices = async () => {
+      // Get permissions first
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter((device) => device.kind === 'videoinput');
+        setVideoDevices(cameras);
+        if (cameras.length > 0) {
+          setSelectedDeviceId(cameras[0].deviceId);
+        }
+      } catch (err) {
+        console.error("Could not get media devices.", err);
+      }
+    };
+    getDevices();
+  }, []);
 
   const handlePdfUpload = async (file: File) => {
     if (!file) return;
@@ -204,6 +241,9 @@ export default function VividCastPage() {
               selectedLayout={selectedLayout}
               slideImages={slideImages}
               currentSlide={currentSlide}
+              isMuted={isMuted}
+              selectedDeviceId={selectedDeviceId}
+              logoSettings={logoSettings}
             />
             {countdown > 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -225,6 +265,11 @@ export default function VividCastPage() {
             onTogglePause={togglePause}
             aspectRatio={aspectRatio}
             onAspectRatioChange={setAspectRatio}
+            isMuted={isMuted}
+            onToggleMute={() => setIsMuted(prev => !prev)}
+            videoDevices={videoDevices}
+            selectedDeviceId={selectedDeviceId}
+            onCameraChange={setSelectedDeviceId}
           />
         </div>
 
@@ -238,6 +283,8 @@ export default function VividCastPage() {
             selectedBackground={selectedBackground}
             isSharingScreen={isSharingScreen}
             onToggleScreenShare={toggleScreenSharing}
+            logoSettings={logoSettings}
+            onLogoSettingsChange={setLogoSettings}
           />
         </div>
       </main>

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import type { Effects } from '@/app/page';
+import type { Effects, LogoSettings } from '@/app/page';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { VideoOff } from 'lucide-react';
@@ -16,6 +16,9 @@ interface VideoPreviewProps {
   selectedLayout: string;
   slideImages: string[];
   currentSlide: number;
+  isMuted: boolean;
+  selectedDeviceId: string;
+  logoSettings: LogoSettings;
 }
 
 function formatTime(seconds: number) {
@@ -36,6 +39,9 @@ export function VideoPreview({
   selectedLayout,
   slideImages,
   currentSlide,
+  isMuted,
+  selectedDeviceId,
+  logoSettings,
 }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
@@ -47,6 +53,8 @@ export function VideoPreview({
   const effectsRef = useRef(effects);
   const layoutRef = useRef(selectedLayout);
   const slideImageRef = useRef<HTMLImageElement | null>(null);
+  const logoImageRef = useRef<HTMLImageElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -59,56 +67,69 @@ export function VideoPreview({
   useEffect(() => {
     if (slideImages.length > 0 && currentSlide < slideImages.length) {
       const img = new Image();
-      img.onload = () => {
-        slideImageRef.current = img;
-      };
-      img.onerror = () => {
-        slideImageRef.current = null;
-      };
+      img.onload = () => { slideImageRef.current = img; };
+      img.onerror = () => { slideImageRef.current = null; };
       img.src = slideImages[currentSlide];
     } else {
       slideImageRef.current = null;
     }
   }, [slideImages, currentSlide]);
-  
+
   useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      if (typeof navigator?.mediaDevices?.getUserMedia !== 'function') {
-        setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Unsupported Browser',
-          description: 'Your browser does not support camera access.',
-        });
-        return;
+    if (logoSettings.src) {
+      const img = new Image();
+      img.onload = () => { logoImageRef.current = img; };
+      img.onerror = () => { logoImageRef.current = null; };
+      img.src = logoSettings.src;
+    } else {
+      logoImageRef.current = null;
+    }
+  }, [logoSettings.src]);
+
+  useEffect(() => {
+    if (!selectedDeviceId) return;
+    
+    const getCameraStream = async () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
       }
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1920, height: 1080 },
+        const constraints = {
+          video: { deviceId: { exact: selectedDeviceId }, width: 1920, height: 1080 },
           audio: true,
-        });
+        };
+        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        streamRef.current = newStream;
         setHasCameraPermission(true);
 
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+          videoRef.current.srcObject = newStream;
         }
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
         toast({
           variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions in your browser settings to use this app.',
+          title: 'Camera Access Failed',
+          description: 'Could not switch camera. Please check permissions.',
         });
       }
     };
 
-    getCameraPermission();
+    getCameraStream();
+
     return () => {
-        stream?.getTracks().forEach((track) => track.stop());
+      streamRef.current?.getTracks().forEach((track) => track.stop());
     }
-  }, [toast]);
+  }, [selectedDeviceId, toast]);
+  
+  useEffect(() => {
+    if (streamRef.current) {
+      streamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !isMuted;
+      });
+    }
+  }, [isMuted]);
 
   useEffect(() => {
     if (screenVideoRef.current && screenStream) {
@@ -128,6 +149,7 @@ export function VideoPreview({
     if (!ctx) return;
     
     const render = () => {
+      if (!canvas || !ctx) return;
       const currentEffects = effectsRef.current;
       const currentLayout = layoutRef.current;
       const camReady = video.readyState >= 2;
@@ -179,6 +201,29 @@ export function VideoPreview({
       }
       
       ctx.filter = 'none';
+
+      if (logoImageRef.current && logoImageRef.current.complete && logoSettings.src) {
+          const logoImg = logoImageRef.current;
+          const canvasW = canvas.width;
+          const canvasH = canvas.height;
+          
+          const logoW = canvasW * (logoSettings.size / 100);
+          const logoH = logoW * (logoImg.naturalHeight / logoImg.naturalWidth);
+          const padding = 20;
+
+          let x = 0, y = 0;
+
+          switch (logoSettings.position) {
+              case 'top-left': x = padding; y = padding; break;
+              case 'top-right': x = canvasW - logoW - padding; y = padding; break;
+              case 'bottom-left': x = padding; y = canvasH - logoH - padding; break;
+              case 'bottom-right': x = canvasW - logoW - padding; y = canvasH - logoH - padding; break;
+          }
+
+          ctx.globalAlpha = logoSettings.opacity / 100;
+          ctx.drawImage(logoImg, x, y, logoW, logoH);
+          ctx.globalAlpha = 1.0;
+      }
     };
     
     const startRenderLoop = () => {
@@ -187,15 +232,8 @@ export function VideoPreview({
 
       const setCanvasSize = () => {
           if (video.videoWidth > 0) {
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = video.videoWidth;
-            tempCanvas.height = video.videoHeight;
-            if (tempCtx) {
-                 tempCtx.drawImage(video, 0, 0);
-                 canvas.width = tempCanvas.width;
-                 canvas.height = tempCanvas.height;
-            }
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
           }
       }
 
@@ -229,7 +267,7 @@ export function VideoPreview({
       video.removeEventListener('canplay', handleCanPlay);
       screenVideo?.removeEventListener('canplay', handleCanPlay);
     };
-  }, [hasCameraPermission, screenStream]);
+  }, [hasCameraPermission, screenStream, logoSettings]);
 
   useEffect(() => {
     if (isRecording) {
@@ -246,19 +284,20 @@ export function VideoPreview({
           return;
         }
 
-        const stream = canvas.captureStream(30);
-        
-        const cameraAudioTracks = (videoRef.current?.srcObject as MediaStream)?.getAudioTracks();
+        const canvasStream = canvas.captureStream(30);
+        const finalStream = new MediaStream(canvasStream.getVideoTracks());
+
+        const cameraAudioTracks = streamRef.current?.getAudioTracks();
         if (cameraAudioTracks && cameraAudioTracks.length > 0) {
-            stream.addTrack(cameraAudioTracks[0].clone());
+            finalStream.addTrack(cameraAudioTracks[0].clone());
         }
         
         const screenAudioTracks = screenStream?.getAudioTracks();
         if (screenAudioTracks && screenAudioTracks.length > 0) {
-            stream.addTrack(screenAudioTracks[0].clone());
+            finalStream.addTrack(screenAudioTracks[0].clone());
         }
 
-        mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        mediaRecorderRef.current = new MediaRecorder(finalStream, { mimeType: 'video/webm' });
 
         mediaRecorderRef.current.ondataavailable = (event) => {
             if (event.data.size > 0) {
@@ -270,7 +309,7 @@ export function VideoPreview({
             const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
             const url = URL.createObjectURL(blob);
             onRecordingComplete(url);
-            stream.getTracks().forEach(track => track.stop());
+            finalStream.getTracks().forEach(track => track.stop());
             mediaRecorderRef.current = null;
         };
 
