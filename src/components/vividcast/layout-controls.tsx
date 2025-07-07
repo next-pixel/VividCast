@@ -1,6 +1,6 @@
 
 import React from 'react';
-import type { PipSettings, PipShape, PipPosition, SideBySideSettings } from '@/app/page';
+import type { PipSettings, PipShape, SideBySideSettings } from '@/app/page';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -49,13 +49,6 @@ const pipShapeOptions: { value: PipShape, icon: React.ElementType, label: string
   { value: 'rectangle', icon: Square, label: 'Rectangle' },
   { value: 'rounded-square', icon: RoundedRectangle, label: 'Rounded' },
   { value: 'circle', icon: Circle, label: 'Circle' },
-];
-
-const pipPositionOptions: { value: PipPosition, icon: React.ElementType }[] = [
-    { value: 'top-left', icon: CornerUpLeft },
-    { value: 'top-right', icon: CornerUpRight },
-    { value: 'bottom-left', icon: CornerDownLeft },
-    { value: 'bottom-right', icon: CornerDownRight },
 ];
 
 export function LayoutControls({ 
@@ -157,26 +150,32 @@ export function LayoutControls({
               </RadioGroup>
             </div>
             <div className="space-y-2">
-                <Label>Position</Label>
-                <RadioGroup
-                    value={pipSettings.position}
-                    onValueChange={(value: PipPosition) => onPipSettingsChange({ ...pipSettings, position: value })}
-                    className="grid grid-cols-4 gap-2"
-                >
-                    {pipPositionOptions.map(opt => (
-                        <Label
-                            key={opt.value}
-                            htmlFor={`pip-pos-${opt.value}`}
-                            className={cn(
-                                "flex items-center justify-center rounded-md border-2 border-muted bg-popover p-2 h-12 hover:bg-accent hover:text-accent-foreground cursor-pointer",
-                                pipSettings.position === opt.value && "border-primary"
-                            )}
-                        >
-                            <RadioGroupItem value={opt.value} id={`pip-pos-${opt.value}`} className="sr-only" />
-                            <opt.icon className="h-5 w-5" />
-                        </Label>
-                    ))}
-                </RadioGroup>
+                <p className="text-sm font-medium">Position</p>
+                <div className="text-xs text-muted-foreground p-3 text-center border rounded-md">
+                    Click and drag your camera preview to move it.
+                </div>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="pip-size">Size: {pipSettings.size}%</Label>
+                <Slider
+                    id="pip-size"
+                    min={10}
+                    max={50}
+                    step={1}
+                    value={[pipSettings.size]}
+                    onValueChange={(value) => onPipSettingsChange({ ...pipSettings, size: value[0] })}
+                />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="pip-opacity">Opacity: {pipSettings.opacity}%</Label>
+                <Slider
+                    id="pip-opacity"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={[pipSettings.opacity]}
+                    onValueChange={(value) => onPipSettingsChange({ ...pipSettings, opacity: value[0] })}
+                />
             </div>
           </CardContent>
         </Card>

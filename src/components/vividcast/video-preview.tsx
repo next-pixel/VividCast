@@ -22,6 +22,7 @@ interface VideoPreviewProps {
   selectedDeviceId: string;
   logoSettings: LogoSettings;
   pipSettings: PipSettings;
+  onPipSettingsChange: (settings: PipSettings) => void;
   sideBySideSettings: SideBySideSettings;
   aspectRatio: string;
 }
@@ -48,6 +49,7 @@ export function VideoPreview({
   selectedDeviceId,
   logoSettings,
   pipSettings,
+  onPipSettingsChange,
   sideBySideSettings,
   aspectRatio,
 }: VideoPreviewProps) {
@@ -71,6 +73,12 @@ export function VideoPreview({
   const [isSegmenterReady, setIsSegmenterReady] = useState(false);
   const lastFrameTimeRef = useRef(0);
   const animationFrameId = useRef<number>();
+
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+
+  const [audioFrequencyData, setAudioFrequencyData] = useState(() => new Uint8Array(16));
 
   useEffect(() => {
     // This effect runs only once on mount to initialize the segmenter
@@ -220,6 +228,49 @@ export function VideoPreview({
   }, []);
 
   useEffect(() => {
+    if (!isRecording || isPaused || isMuted) {
+      setAudioFrequencyData(new Uint8Array(16)); // Reset on stop/pause
+      return;
+    }
+  
+    const audioTracks = streamRef.current?.getAudioTracks();
+    if (!streamRef.current || !audioTracks || audioTracks.length === 0) {
+      setAudioFrequencyData(new Uint8Array(16));
+      return;
+    }
+  
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const analyser = audioContext.createAnalyser();
+    // Use a smaller fftSize for fewer bars, which is better for a small visualizer.
+    analyser.fftSize = 32;
+    const source = audioContext.createMediaStreamSource(streamRef.current!);
+    source.connect(analyser);
+  
+    const bufferLength = analyser.frequencyBinCount; // Will be 16
+    const dataArray = new Uint8Array(bufferLength);
+    let animationFrameId: number;
+  
+    const analyse = () => {
+      analyser.getByteFrequencyData(dataArray);
+      // Create a copy to avoid state mutation issues
+      setAudioFrequencyData(new Uint8Array(dataArray));
+      animationFrameId = requestAnimationFrame(analyse);
+    };
+    
+    analyse();
+  
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      source.disconnect();
+      analyser.disconnect();
+      if (audioContext.state !== 'closed') {
+        audioContext.close();
+      }
+      setAudioFrequencyData(new Uint8Array(16));
+    };
+  }, [isRecording, isPaused, isMuted, selectedDeviceId]);
+
+  useEffect(() => {
     if (!selectedDeviceId) return;
     
     const getCameraStream = async () => {
@@ -316,6 +367,29 @@ export function VideoPreview({
         }
         ctx.drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dw, dh);
       }
+
+      const drawContained = (source: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => {
+        const sw = (source as any).videoWidth || (source as any).naturalWidth || (source as any).width || 0;
+        const sh = (source as any).videoHeight || (source as any).naturalHeight || (source as any).height || 0;
+        if (!sw || !sh) return;
+
+        const sRatio = sw / sh;
+        const dRatio = dw / dh;
+
+        let newWidth = dw;
+        let newHeight = dh;
+
+        if (sRatio > dRatio) {
+            newHeight = dw / sRatio;
+        } else {
+            newWidth = dh * sRatio;
+        }
+        
+        const newDx = dx + (dw - newWidth) / 2;
+        const newDy = dy + (dh - newHeight) / 2;
+
+        ctx.drawImage(source, 0, 0, sw, sh, newDx, newDy, newWidth, newHeight);
+      }
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -382,20 +456,14 @@ export function VideoPreview({
             break;
           case 'picture-in-picture':
             drawPresentation(0, 0, canvas.width, canvas.height);
-            const pipWidth = canvas.width / 4;
+            const pipWidth = canvas.width * (pipSettings.size / 100);
             const camAspectRatio = video.videoHeight ? video.videoWidth / video.videoHeight : 16/9;
             const pipHeight = pipWidth / camAspectRatio;
-            const padding = 20;
-
-            let pipX = 0, pipY = 0;
-            switch(pipSettings.position) {
-              case 'top-left': pipX = padding; pipY = padding; break;
-              case 'top-right': pipX = canvas.width - pipWidth - padding; pipY = padding; break;
-              case 'bottom-left': pipX = padding; pipY = canvas.height - pipHeight - padding; break;
-              case 'bottom-right': pipX = canvas.width - pipWidth - padding; pipY = canvas.height - pipHeight - padding; break;
-            }
+            const pipX = canvas.width * (pipSettings.position.x / 100);
+            const pipY = canvas.height * (pipSettings.position.y / 100);
 
             ctx.save();
+            ctx.globalAlpha = pipSettings.opacity / 100;
             ctx.beginPath();
             if (pipSettings.shape === 'circle') {
               ctx.arc(pipX + pipWidth / 2, pipY + pipHeight / 2, Math.min(pipWidth, pipHeight) / 2, 0, 2 * Math.PI);
@@ -409,20 +477,29 @@ export function VideoPreview({
             ctx.restore();
             break;
           case 'side-by-side':
-            const camWidth = canvas.width * (sideBySideSettings.split / 100);
-            const presentationWidth = canvas.width - camWidth;
+            const margin = 20; // Margin between the two sections
+            const availableWidth = canvas.width - margin;
+            const camWidth = availableWidth * (sideBySideSettings.split / 100);
+            const presentationWidth = availableWidth - camWidth;
+            
             drawCam(0, 0, camWidth, canvas.height);
-            drawPresentation(camWidth, 0, presentationWidth, canvas.height);
+            drawPresentation(camWidth + margin, 0, presentationWidth, canvas.height);
             break;
           case 'presenter':
             drawCam(0, 0, canvas.width, canvas.height);
             const presentationAsset = slideReady ? slideImageRef.current : (screenReady ? screenVideo : null);
             if (presentationAsset) {
-                const assetWidth = 'videoWidth' in presentationAsset ? presentationAsset.videoWidth : presentationAsset.width;
-                const assetHeight = 'videoHeight' in presentationAsset ? presentationAsset.videoHeight : presentationAsset.height;
-                const screenPipWidth = canvas.width / 4;
-                const screenPipHeight = screenPipWidth * (assetHeight / assetWidth || 9/16);
-                drawPresentation(canvas.width - screenPipWidth - 20, canvas.height - screenPipHeight - 20, screenPipWidth, screenPipHeight);
+                const insetWidth = canvas.width / 4;
+                const insetHeight = canvas.height / 4;
+                const insetX = canvas.width - insetWidth - 20;
+                const insetY = canvas.height - insetHeight - 20;
+                
+                // Add a semi-transparent background for the inset
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(insetX, insetY, insetWidth, insetHeight);
+
+                // Draw the presentation content contained within the box
+                drawContained(presentationAsset, insetX, insetY, insetWidth, insetHeight);
             }
             break;
           default:
@@ -464,7 +541,7 @@ export function VideoPreview({
     return () => {
       if(animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
-  }, [hasCameraPermission, screenStream, slideImages.length, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, sideBySideSettings, aspectRatio, selectedBackground, backgroundImage]);
+  }, [hasCameraPermission, screenStream, slideImages.length, isSegmenterReady, effects, selectedLayout, pipSettings, logoSettings, sideBySideSettings, aspectRatio, selectedBackground, backgroundImage]);
 
   useEffect(() => {
     if (isRecording) {
@@ -529,11 +606,130 @@ export function VideoPreview({
     }
   }, [isPaused]);
 
+  const getMousePos = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!previewContainerRef.current) return { x: 0, y: 0 };
+    const rect = previewContainerRef.current.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (selectedLayout !== 'picture-in-picture') return;
+
+    const canvas = canvasRef.current;
+    if (!canvas || !videoRef.current) return;
+
+    const container = previewContainerRef.current;
+    if (!container) return;
+
+    const scaleX = canvas.width / container.clientWidth;
+    const scaleY = canvas.height / container.clientHeight;
+
+    const mousePos = getMousePos(e);
+    const mouseX = mousePos.x * scaleX;
+    const mouseY = mousePos.y * scaleY;
+
+    const pipWidth = canvas.width * (pipSettings.size / 100);
+    const camAspectRatio = videoRef.current.videoHeight ? videoRef.current.videoWidth / videoRef.current.videoHeight : 16/9;
+    const pipHeight = pipWidth / camAspectRatio;
+    const pipX = canvas.width * (pipSettings.position.x / 100);
+    const pipY = canvas.height * (pipSettings.position.y / 100);
+
+    if (mouseX > pipX && mouseX < pipX + pipWidth && mouseY > pipY && mouseY < pipY + pipHeight) {
+      setIsDragging(true);
+      dragOffsetRef.current = {
+        x: mouseX - pipX,
+        y: mouseY - pipY,
+      };
+      container.style.cursor = 'grabbing';
+    }
+  }, [selectedLayout, getMousePos, pipSettings]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false);
+      if (previewContainerRef.current) {
+        // We set the cursor based on hover state in mousemove
+        previewContainerRef.current.style.cursor = 'grab';
+      }
+    }
+  }, [isDragging]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false);
+      if (previewContainerRef.current) {
+        previewContainerRef.current.style.cursor = 'default';
+      }
+    }
+  }, [isDragging]);
+  
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const container = previewContainerRef.current;
+    if (!container) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas || !videoRef.current) return;
+    
+    const scaleX = canvas.width / container.clientWidth;
+    const scaleY = canvas.height / container.clientHeight;
+    
+    const mousePos = getMousePos(e);
+    const mouseX = mousePos.x * scaleX;
+    const mouseY = mousePos.y * scaleY;
+
+    const pipWidth = canvas.width * (pipSettings.size / 100);
+    const camAspectRatio = videoRef.current.videoHeight ? videoRef.current.videoWidth / videoRef.current.videoHeight : 16/9;
+    const pipHeight = pipWidth / camAspectRatio;
+    const pipX = canvas.width * (pipSettings.position.x / 100);
+    const pipY = canvas.height * (pipSettings.position.y / 100);
+
+    if (selectedLayout === 'picture-in-picture') {
+        const isHoveringPip = mouseX > pipX && mouseX < pipX + pipWidth && mouseY > pipY && mouseY < pipY + pipHeight;
+        if (isDragging) {
+            container.style.cursor = 'grabbing';
+        } else if (isHoveringPip) {
+            container.style.cursor = 'grab';
+        } else {
+            container.style.cursor = 'default';
+        }
+    } else {
+        container.style.cursor = 'default';
+    }
+
+    if (!isDragging) return;
+
+    let newX = mouseX - dragOffsetRef.current.x;
+    let newY = mouseY - dragOffsetRef.current.y;
+
+    newX = Math.max(0, Math.min(newX, canvas.width - pipWidth));
+    newY = Math.max(0, Math.min(newY, canvas.height - pipHeight));
+
+    const newXPercent = (newX / canvas.width) * 100;
+    const newYPercent = (newY / canvas.height) * 100;
+
+    onPipSettingsChange({
+      ...pipSettings,
+      position: { x: newXPercent, y: newYPercent },
+    });
+  }, [isDragging, getMousePos, pipSettings, onPipSettingsChange, selectedLayout, canvasRef, videoRef]);
+
   const isPresenting = screenStream || slideImages.length > 0;
   const showSegmenterLoading = !!selectedBackground && !isPresenting && !isSegmenterReady;
 
+  const audioLevel = audioFrequencyData.length > 0
+    ? (audioFrequencyData.reduce((sum, value) => sum + value, 0) / audioFrequencyData.length) / 255
+    : 0;
+
   return (
     <div 
+      ref={previewContainerRef}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       className="relative w-full h-full bg-card flex items-center justify-center overflow-hidden"
       style={{ background: selectedBackground || 'hsl(var(--muted))' }}
     >
@@ -543,7 +739,19 @@ export function VideoPreview({
       
        {isRecording && (
         <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm z-10">
-          <span className={cn("h-3 w-3 rounded-full bg-red-500", { 'animate-pulse': !isPaused })} />
+          <div
+            className="h-3 w-3 rounded-full bg-red-500 transition-transform duration-75"
+            style={{ transform: `scale(${isPaused ? 1 : 1 + audioLevel * 1.2})` }}
+          />
+          <div className="flex items-end gap-px h-4">
+            {Array.from(audioFrequencyData).map((value, i) => (
+                <div
+                    key={i}
+                    className="w-0.5 bg-red-400"
+                    style={{ height: `${Math.max(2, (value / 255) * 100)}%` }}
+                />
+            ))}
+          </div>
           <span>{isPaused ? "Paused" : "REC"}</span>
           <span className="font-mono">{formatTime(elapsedTime)}</span>
         </div>
@@ -566,13 +774,6 @@ export function VideoPreview({
                 </AlertDescription>
             </Alert>
          </div>
-      )}
-
-      {hasCameraPermission === null && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground bg-black/50">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <p>Requesting camera access...</p>
-        </div>
       )}
     </div>
   );

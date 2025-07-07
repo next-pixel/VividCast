@@ -1,8 +1,7 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Square, Scaling, Pause, Mic, MicOff, Camera, Expand, Shrink } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Play, Square, Pause, Mic, MicOff, Expand, Shrink } from 'lucide-react';
 
 interface ControlsProps {
   isRecording: boolean;
@@ -10,13 +9,8 @@ interface ControlsProps {
   onStartRecording: () => void;
   onStopRecording: () => void;
   onTogglePause: () => void;
-  aspectRatio: string;
-  onAspectRatioChange: (ratio: string) => void;
   isMuted: boolean;
   onToggleMute: () => void;
-  videoDevices: MediaDeviceInfo[];
-  selectedDeviceId: string;
-  onCameraChange: (deviceId: string) => void;
   isFullscreen: boolean;
   onToggleFullScreen: () => void;
 }
@@ -27,57 +21,15 @@ export function Controls({
   onStartRecording, 
   onStopRecording, 
   onTogglePause,
-  aspectRatio, 
-  onAspectRatioChange,
   isMuted,
   onToggleMute,
-  videoDevices,
-  selectedDeviceId,
-  onCameraChange,
   isFullscreen,
   onToggleFullScreen
 }: ControlsProps) {
-  const aspectRatios = [
-    { value: '16/9', label: 'Landscape (16:9)' },
-    { value: '9/16', label: 'Portrait (9:16)' },
-    { value: '1/1', label: 'Square (1:1)' },
-    { value: '4/3', label: 'Classic (4:3)' },
-    { value: '21/9', label: 'Cinematic (21:9)' },
-    { value: '4/5', label: 'Social (4:5)' },
-  ];
-
+  
   return (
     <div id="controls-bar" className="w-full flex items-center justify-center">
       <div className="flex items-center justify-center flex-wrap gap-4 p-3 bg-card rounded-2xl shadow-lg border">
-        {/* Device Controls */}
-        <div className="flex items-center gap-2">
-            <Select value={aspectRatio} onValueChange={onAspectRatioChange}>
-                <SelectTrigger className="w-auto sm:w-[170px]">
-                    <Scaling className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Aspect Ratio" />
-                </SelectTrigger>
-                <SelectContent>
-                    {aspectRatios.map((ratio) => (
-                        <SelectItem key={ratio.value} value={ratio.value}>{ratio.label}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-
-            <Select value={selectedDeviceId} onValueChange={onCameraChange}>
-                <SelectTrigger className="w-auto sm:w-[170px]">
-                    <Camera className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Select Camera" />
-                </SelectTrigger>
-                <SelectContent>
-                    {videoDevices.map((device) => (
-                        <SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${videoDevices.indexOf(device) + 1}`}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
-
-        <Separator orientation="vertical" className="h-8 hidden md:block" />
-
         {/* Recording Controls */}
         <div className="flex items-center gap-2">
             <Button size="icon" variant="outline" onClick={onToggleMute}>
@@ -107,8 +59,6 @@ export function Controls({
                 </Button>
             ) : <div className="w-12 h-12" /> /* Placeholder to prevent layout shift */}
         </div>
-        
-        <Separator orientation="vertical" className="h-8 hidden md:block" />
         
         {/* Fullscreen Control */}
         <div className="flex items-center">

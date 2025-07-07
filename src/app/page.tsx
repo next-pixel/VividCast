@@ -6,7 +6,6 @@ import { Header } from '@/components/vividcast/header';
 import { SettingsPanel } from '@/components/vividcast/settings-panel';
 import { VideoPreview } from '@/components/vividcast/video-preview';
 import { Controls } from '@/components/vividcast/controls';
-import { TeleprompterDisplay } from '@/components/vividcast/teleprompter-display';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjs from 'pdfjs-dist';
@@ -20,6 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { TeleprompterDisplay } from '@/components/vividcast/teleprompter-display';
+import { FullscreenControls } from '@/components/vividcast/fullscreen-controls';
 
 if (typeof window !== 'undefined') {
   pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.mjs`;
@@ -48,11 +49,12 @@ export type LogoSettings = {
 }
 
 export type PipShape = 'rectangle' | 'rounded-square' | 'circle';
-export type PipPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 export type PipSettings = {
   shape: PipShape;
-  position: PipPosition;
+  position: { x: number; y: number }; // In percentage
+  size: number;
+  opacity: number;
 };
 
 export type SideBySideSettings = {
@@ -89,7 +91,9 @@ export default function VividCastPage() {
   })
   const [pipSettings, setPipSettings] = useState<PipSettings>({
     shape: 'rectangle',
-    position: 'bottom-right'
+    position: { x: 74, y: 74 }, // Default to bottom-rightish
+    size: 25,
+    opacity: 100,
   });
   const [sideBySideSettings, setSideBySideSettings] = useState<SideBySideSettings>({ split: 50 });
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -99,17 +103,6 @@ export default function VividCastPage() {
 
 
   const { toast } = useToast();
-
-  useEffect(() => {
-    // This effect runs once on the client after hydration
-    const tourCompleted = localStorage.getItem('vividcast-tour-completed');
-    if (!tourCompleted) {
-      // Use a timeout to ensure all elements are rendered and available
-      setTimeout(() => {
-        setIsTourActive(true);
-      }, 500);
-    }
-  }, []);
 
   useEffect(() => {
     const getDevices = async () => {
@@ -230,12 +223,20 @@ export default function VividCastPage() {
         setScreenStream(stream);
         setIsSharingScreen(true);
       } catch (err) {
-        console.error("Error sharing screen:", err);
-        if ((err as Error).name !== 'NotAllowedError') {
+        const error = err as Error;
+        console.error("Error sharing screen:", error);
+
+        if (error.message.includes('disallowed by permissions policy')) {
+          toast({
+            variant: 'destructive',
+            title: 'Screen Share Unavailable',
+            description: 'This feature is disabled in the current environment. Please try opening the app in a standalone window.',
+          });
+        } else if (error.name !== 'NotAllowedError') { // User clicked 'cancel' in the permission prompt
           toast({
             variant: 'destructive',
             title: 'Screen Share Failed',
-            description: 'Could not start screen sharing. Please check permissions.',
+            description: 'Could not start screen sharing. Please check your browser permissions.',
           });
         }
       }
@@ -286,7 +287,6 @@ export default function VividCastPage() {
   }, [isRecording, isPaused]);
   
   const handleTourComplete = useCallback(() => {
-    localStorage.setItem('vividcast-tour-completed', 'true');
     setIsTourActive(false);
   }, []);
 
@@ -368,6 +368,12 @@ export default function VividCastPage() {
       <main className="flex-1 container mx-auto p-4 md:p-6 lg:p-8 flex flex-col lg:flex-row items-start gap-8">
         <div id="settings-panel-wrapper" className="w-full lg:w-96 lg:sticky lg:top-8">
           <SettingsPanel
+            // Device
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
+            videoDevices={videoDevices}
+            selectedDeviceId={selectedDeviceId}
+            onCameraChange={setSelectedDeviceId}
             // Teleprompter
             setTeleprompterText={setTeleprompterText}
             teleprompterSettings={teleprompterSettings}
@@ -426,6 +432,7 @@ export default function VividCastPage() {
               selectedDeviceId={selectedDeviceId}
               logoSettings={logoSettings}
               pipSettings={pipSettings}
+              onPipSettingsChange={setPipSettings}
               sideBySideSettings={sideBySideSettings}
               aspectRatio={aspectRatio}
             />
@@ -440,23 +447,35 @@ export default function VividCastPage() {
                 isRecording={isRecording && !isPaused}
                 position={teleprompterPosition}
               />
+            {isFullscreen && (
+                <FullscreenControls
+                    isRecording={isRecording}
+                    isPaused={isPaused}
+                    onStartRecording={startRecording}
+                    onStopRecording={stopRecording}
+                    onTogglePause={togglePause}
+                    isMuted={isMuted}
+                    onToggleMute={() => setIsMuted(prev => !prev)}
+                    onToggleFullScreen={toggleFullScreen}
+                    currentSlide={currentSlide}
+                    totalSlides={slideImages.length}
+                    onSlideChange={handleSlideChange}
+                />
+             )}
           </div>
-          <Controls
-            isRecording={isRecording}
-            isPaused={isPaused}
-            onStartRecording={startRecording}
-            onStopRecording={stopRecording}
-            onTogglePause={togglePause}
-            aspectRatio={aspectRatio}
-            onAspectRatioChange={setAspectRatio}
-            isMuted={isMuted}
-            onToggleMute={() => setIsMuted(prev => !prev)}
-            videoDevices={videoDevices}
-            selectedDeviceId={selectedDeviceId}
-            onCameraChange={setSelectedDeviceId}
-            isFullscreen={isFullscreen}
-            onToggleFullScreen={toggleFullScreen}
-          />
+          {!isFullscreen && (
+            <Controls
+              isRecording={isRecording}
+              isPaused={isPaused}
+              onStartRecording={startRecording}
+              onStopRecording={stopRecording}
+              onTogglePause={togglePause}
+              isMuted={isMuted}
+              onToggleMute={() => setIsMuted(prev => !prev)}
+              isFullscreen={isFullscreen}
+              onToggleFullScreen={toggleFullScreen}
+            />
+          )}
         </div>
       </main>
       <UITour steps={tourSteps} isOpen={isTourActive} onComplete={handleTourComplete} />
