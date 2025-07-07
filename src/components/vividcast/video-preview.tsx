@@ -78,7 +78,7 @@ export function VideoPreview({
   const [isDragging, setIsDragging] = useState(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
 
-  const [audioLevel, setAudioLevel] = useState(0);
+  const [audioFrequencyData, setAudioFrequencyData] = useState(() => new Uint8Array(16));
 
   useEffect(() => {
     // This effect runs only once on mount to initialize the segmenter
@@ -228,42 +228,37 @@ export function VideoPreview({
   }, []);
 
   useEffect(() => {
-    // If not recording or paused, do nothing and ensure cleanup happens.
     if (!isRecording || isPaused || isMuted) {
-      setAudioLevel(0);
+      setAudioFrequencyData(new Uint8Array(16)); // Reset on stop/pause
       return;
     }
-
+  
     const audioTracks = streamRef.current?.getAudioTracks();
     if (!streamRef.current || !audioTracks || audioTracks.length === 0) {
-      setAudioLevel(0);
+      setAudioFrequencyData(new Uint8Array(16));
       return;
     }
-
+  
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 256;
+    // Use a smaller fftSize for fewer bars, which is better for a small visualizer.
+    analyser.fftSize = 32;
     const source = audioContext.createMediaStreamSource(streamRef.current!);
     source.connect(analyser);
-
-    const bufferLength = analyser.frequencyBinCount;
+  
+    const bufferLength = analyser.frequencyBinCount; // Will be 16
     const dataArray = new Uint8Array(bufferLength);
     let animationFrameId: number;
-
+  
     const analyse = () => {
       analyser.getByteFrequencyData(dataArray);
-      let sum = 0;
-      for (const amplitude of dataArray) {
-        sum += amplitude;
-      }
-      const avg = sum / bufferLength;
-      const level = Math.min(1, avg / 100);
-      setAudioLevel(level);
+      // Create a copy to avoid state mutation issues
+      setAudioFrequencyData(new Uint8Array(dataArray));
       animationFrameId = requestAnimationFrame(analyse);
     };
     
     analyse();
-
+  
     return () => {
       cancelAnimationFrame(animationFrameId);
       source.disconnect();
@@ -271,7 +266,7 @@ export function VideoPreview({
       if (audioContext.state !== 'closed') {
         audioContext.close();
       }
-      setAudioLevel(0);
+      setAudioFrequencyData(new Uint8Array(16));
     };
   }, [isRecording, isPaused, isMuted, selectedDeviceId]);
 
@@ -719,10 +714,14 @@ export function VideoPreview({
       ...pipSettings,
       position: { x: newXPercent, y: newYPercent },
     });
-  }, [isDragging, getMousePos, pipSettings, onPipSettingsChange, selectedLayout]);
+  }, [isDragging, getMousePos, pipSettings, onPipSettingsChange, selectedLayout, canvasRef, videoRef]);
 
   const isPresenting = screenStream || slideImages.length > 0;
   const showSegmenterLoading = !!selectedBackground && !isPresenting && !isSegmenterReady;
+
+  const audioLevel = audioFrequencyData.length > 0
+    ? (audioFrequencyData.reduce((sum, value) => sum + value, 0) / audioFrequencyData.length) / 255
+    : 0;
 
   return (
     <div 
@@ -742,8 +741,17 @@ export function VideoPreview({
         <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm z-10">
           <div
             className="h-3 w-3 rounded-full bg-red-500 transition-transform duration-75"
-            style={{ transform: `scale(${isPaused ? 1 : 1 + audioLevel * 0.8})` }}
+            style={{ transform: `scale(${isPaused ? 1 : 1 + audioLevel * 1.2})` }}
           />
+          <div className="flex items-end gap-px h-4">
+            {Array.from(audioFrequencyData).map((value, i) => (
+                <div
+                    key={i}
+                    className="w-0.5 bg-red-400"
+                    style={{ height: `${Math.max(2, (value / 255) * 100)}%` }}
+                />
+            ))}
+          </div>
           <span>{isPaused ? "Paused" : "REC"}</span>
           <span className="font-mono">{formatTime(elapsedTime)}</span>
         </div>
@@ -766,13 +774,6 @@ export function VideoPreview({
                 </AlertDescription>
             </Alert>
          </div>
-      )}
-
-      {hasCameraPermission === null && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground bg-black/50">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <p>Requesting camera access...</p>
-        </div>
       )}
     </div>
   );
