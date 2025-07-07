@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { TeleprompterDisplay } from '@/components/vividcast/teleprompter-display';
+import { FullscreenControls } from '@/components/vividcast/fullscreen-controls';
 
 if (typeof window !== 'undefined') {
   pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.mjs`;
@@ -438,18 +439,35 @@ export default function VividCastPage() {
                 isRecording={isRecording && !isPaused}
                 position={teleprompterPosition}
               />
+            {isFullscreen && (
+                <FullscreenControls
+                    isRecording={isRecording}
+                    isPaused={isPaused}
+                    onStartRecording={startRecording}
+                    onStopRecording={stopRecording}
+                    onTogglePause={togglePause}
+                    isMuted={isMuted}
+                    onToggleMute={() => setIsMuted(prev => !prev)}
+                    onToggleFullScreen={toggleFullScreen}
+                    currentSlide={currentSlide}
+                    totalSlides={slideImages.length}
+                    onSlideChange={handleSlideChange}
+                />
+             )}
           </div>
-          <Controls
-            isRecording={isRecording}
-            isPaused={isPaused}
-            onStartRecording={startRecording}
-            onStopRecording={stopRecording}
-            onTogglePause={togglePause}
-            isMuted={isMuted}
-            onToggleMute={() => setIsMuted(prev => !prev)}
-            isFullscreen={isFullscreen}
-            onToggleFullScreen={toggleFullScreen}
-          />
+          {!isFullscreen && (
+            <Controls
+              isRecording={isRecording}
+              isPaused={isPaused}
+              onStartRecording={startRecording}
+              onStopRecording={stopRecording}
+              onTogglePause={togglePause}
+              isMuted={isMuted}
+              onToggleMute={() => setIsMuted(prev => !prev)}
+              isFullscreen={isFullscreen}
+              onToggleFullScreen={toggleFullScreen}
+            />
+          )}
         </div>
       </main>
       <UITour steps={tourSteps} isOpen={isTourActive} onComplete={handleTourComplete} />
