@@ -20,6 +20,7 @@ interface VideoPreviewProps {
   isMuted: boolean;
   selectedDeviceId: string;
   logoSettings: LogoSettings;
+  aspectRatio: string;
 }
 
 function formatTime(seconds: number) {
@@ -43,6 +44,7 @@ export function VideoPreview({
   isMuted,
   selectedDeviceId,
   logoSettings,
+  aspectRatio,
 }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
@@ -70,6 +72,24 @@ export function VideoPreview({
     layoutRef.current = selectedLayout;
   }, [effects, selectedLayout]);
   
+  // Update canvas resolution when aspect ratio changes to prevent distortion
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const [arW, arH] = aspectRatio.split('/').map(Number);
+    if (!arW || !arH) return;
+
+    const targetAspectRatio = arW / arH;
+    
+    // Set a base resolution for the canvas, e.g., 1920px wide.
+    const canvasWidth = 1920;
+    const canvasHeight = Math.round(canvasWidth / targetAspectRatio);
+
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+  }, [aspectRatio]);
+
   // Initialize Selfie Segmentation
   useEffect(() => {
     const onResults = (results: SegmentationResults) => {
@@ -223,19 +243,46 @@ export function VideoPreview({
         await segmentationRef.current?.send({ image: video });
       }
 
+      const drawWithLetterbox = (source: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => {
+        const sw = (source as any).videoWidth || (source as any).naturalWidth || source.width;
+        const sh = (source as any).videoHeight || (source as any).naturalHeight || source.height;
+        if (!sw || !sh) return;
+  
+        const sRatio = sw / sh;
+        const dRatio = dw / dh;
+        
+        let w, h, x, y;
+  
+        if (sRatio > dRatio) {
+            w = dw;
+            h = dw / sRatio;
+            x = dx;
+            y = dy + (dh - h) / 2;
+        } else {
+            h = dh;
+            w = dh * sRatio;
+            x = dx + (dw - w) / 2;
+            y = dy;
+        }
+        ctx.drawImage(source, x, y, w, h);
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.filter = `blur(${currentEffects.blur}px) hue-rotate(${currentEffects.hue}deg) opacity(${currentEffects.opacity}%)`;
       
       const drawCam = (x: number, y: number, w: number, h: number) => {
-        if (useSegmentation && offscreenCanvasRef.current) {
-          ctx.drawImage(offscreenCanvasRef.current, x, y, w, h);
-        } else if (camReady) {
-          ctx.drawImage(video, x, y, w, h);
+        const source = (useSegmentation && offscreenCanvasRef.current?.width > 0) ? offscreenCanvasRef.current : video;
+        if (camReady) {
+          drawWithLetterbox(source, x, y, w, h);
         }
       };
 
-      const drawScreen = (x: number, y: number, w: number, h: number) => { if (screenReady) ctx.drawImage(screenVideo, x, y, w, h); };
-      const drawSlide = (x: number, y: number, w: number, h: number) => { if (slideReady) ctx.drawImage(slideImageRef.current!, x, y, w, h); };
+      const drawScreen = (x: number, y: number, w: number, h: number) => { 
+        if (screenReady) drawWithLetterbox(screenVideo!, x, y, w, h);
+      };
+      const drawSlide = (x: number, y: number, w: number, h: number) => { 
+        if (slideReady) drawWithLetterbox(slideImageRef.current!, x, y, w, h);
+      };
       
       const drawPresentation = slideReady ? drawSlide : drawScreen;
 
@@ -300,47 +347,22 @@ export function VideoPreview({
     };
     
     const startRenderLoop = () => {
-      if (renderIntervalIdRef.current) return;
+      if (renderIntervalIdRef.current) {
+        clearInterval(renderIntervalIdRef.current);
+      }
       video.play().catch(e => console.error("Error playing video:", e));
-
-      const setCanvasSize = () => {
-          if (video.videoWidth > 0) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-          }
-      }
-
-      if (video.videoWidth > 0) {
-        setCanvasSize();
-      } else {
-        video.addEventListener('loadedmetadata', setCanvasSize, { once: true });
-      }
-
       renderIntervalIdRef.current = window.setInterval(render, 1000 / 30); // 30 FPS
     };
     
-    const handleCanPlay = () => {
-        if (!renderIntervalIdRef.current) {
-            startRenderLoop();
-        }
-    }
-
-    video.addEventListener('canplay', handleCanPlay);
-    screenVideo?.addEventListener('canplay', handleCanPlay);
-
-    if (video.readyState >= 3) {
-      startRenderLoop();
-    }
+    startRenderLoop();
 
     return () => {
       if (renderIntervalIdRef.current) {
         clearInterval(renderIntervalIdRef.current);
         renderIntervalIdRef.current = undefined;
       }
-      video.removeEventListener('canplay', handleCanPlay);
-      screenVideo?.removeEventListener('canplay', handleCanPlay);
     };
-  }, [hasCameraPermission, screenStream, logoSettings, slideImages, selectedBackground, isSegmenterReady]);
+  }, [hasCameraPermission, screenStream, logoSettings, slideImages, selectedBackground, isSegmenterReady, aspectRatio]);
 
   useEffect(() => {
     if (isRecording) {

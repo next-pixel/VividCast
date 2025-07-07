@@ -265,6 +265,7 @@ export default function VividCastPage() {
               isMuted={isMuted}
               selectedDeviceId={selectedDeviceId}
               logoSettings={logoSettings}
+              aspectRatio={aspectRatio}
             />
             {countdown > 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
