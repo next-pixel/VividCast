@@ -71,52 +71,60 @@ export function VideoPreview({
   const lastFrameTimeRef = useRef(0);
   const animationFrameId = useRef<number>();
 
-  const onResults = useCallback((results: SegmentationResults) => {
-    if (!offscreenCanvasRef.current) return;
-    const ctx = offscreenCanvasRef.current.getContext('2d');
-    if (!ctx || !results.image) return;
-    
-    offscreenCanvasRef.current.width = results.image.width;
-    offscreenCanvasRef.current.height = results.image.height;
-    
-    ctx.save();
-    ctx.clearRect(0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
-    ctx.drawImage(results.segmentationMask, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
-
-    ctx.globalCompositeOperation = 'source-in';
-    ctx.drawImage(results.image, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
-    
-    ctx.restore();
-  }, []);
-
-  const initializeSegmenter = useCallback(async () => {
-    try {
-      const { SelfieSegmentation } = await import('@mediapipe/selfie_segmentation');
-      const newSegmentation = new SelfieSegmentation({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/${file}`,
-      });
-      newSegmentation.setOptions({ modelSelection: 1 });
-      newSegmentation.onResults(onResults);
-      
-      await newSegmentation.initialize();
-      segmentationRef.current = newSegmentation;
-      offscreenCanvasRef.current = document.createElement('canvas');
-      setIsSegmenterReady(true);
-    } catch (error) {
-      console.error("Failed to initialize selfie segmentation:", error);
-    }
-  }, [onResults]);
-
   useEffect(() => {
-    initializeSegmenter();
+    // This effect runs only once on mount to initialize the segmenter
+    if (segmentationRef.current) return;
+
+    let segmenter: SelfieSegmentation | null = null;
     
-    return () => {
-        segmentationRef.current?.close();
-        segmentationRef.current = null;
-        offscreenCanvasRef.current = null;
-        setIsSegmenterReady(false);
+    const initialize = async () => {
+        try {
+            const { SelfieSegmentation } = await import('@mediapipe/selfie_segmentation');
+            segmenter = new SelfieSegmentation({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/${file}`,
+            });
+            segmenter.setOptions({ modelSelection: 1 });
+            
+            segmenter.onResults((results: SegmentationResults) => {
+              if (!offscreenCanvasRef.current) return;
+              const ctx = offscreenCanvasRef.current.getContext('2d');
+              if (!ctx || !results.image) return;
+              
+              offscreenCanvasRef.current.width = results.image.width;
+              offscreenCanvasRef.current.height = results.image.height;
+              
+              ctx.save();
+              ctx.clearRect(0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+              ctx.drawImage(results.segmentationMask, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+          
+              ctx.globalCompositeOperation = 'source-in';
+              ctx.drawImage(results.image, 0, 0, offscreenCanvasRef.current.width, offscreenCanvasRef.current.height);
+              
+              ctx.restore();
+            });
+            
+            await segmenter.initialize();
+
+            segmentationRef.current = segmenter;
+            offscreenCanvasRef.current = document.createElement('canvas');
+            setIsSegmenterReady(true);
+        } catch (error) {
+            console.error("Failed to initialize selfie segmentation:", error);
+            toast({
+              variant: "destructive",
+              title: "Background Engine Failed",
+              description: "Could not start the background removal feature."
+            })
+        }
     };
-  }, [initializeSegmenter]);
+
+    initialize();
+
+    return () => {
+      segmenter?.close();
+      segmentationRef.current = null;
+    };
+  }, [toast]);
   
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -160,19 +168,18 @@ export function VideoPreview({
   // This effect will run once and set up the handler for camera video
   useEffect(() => {
     const video = videoRef.current;
-    if (video) {
-      video.onloadeddata = () => {
-        video.play().catch(e => {
-          console.error("Video play failed", e);
-          toast({
-            variant: "destructive",
-            title: "Playback Error",
-            description: "Could not start the video. Please check browser permissions and try again."
-          });
-        });
-      };
+    if (!video) return;
+
+    const handlePlay = () => {
+      video.play().catch(e => {
+        console.error("Video play failed", e);
+        // Do not toast here as it can be spammy if the browser blocks autoplay
+      });
     }
-  }, [toast]);
+    video.addEventListener('loadeddata', handlePlay)
+    
+    return () => video.removeEventListener('loadeddata', handlePlay)
+  }, []);
 
   // This effect will run once and set up the handler for screen share video
   useEffect(() => {
@@ -257,7 +264,9 @@ export function VideoPreview({
       
       if (useSegmentation && camReady && video.currentTime !== lastFrameTimeRef.current) {
         lastFrameTimeRef.current = video.currentTime;
-        segmentationRef.current?.send({ image: video });
+        if(segmentationRef.current) {
+          segmentationRef.current.send({ image: video });
+        }
       }
 
       const drawCovered = (source: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => {
@@ -388,7 +397,7 @@ export function VideoPreview({
     return () => {
       if(animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
-  }, [hasCameraPermission, screenStream, slideImages.length, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, sideBySideSettings, aspectRatio, selectedBackground, onResults]);
+  }, [hasCameraPermission, screenStream, slideImages.length, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, sideBySideSettings, aspectRatio, selectedBackground]);
 
   useEffect(() => {
     if (isRecording) {
