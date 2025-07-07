@@ -44,7 +44,7 @@ export function Controls({ isRecording, onStartRecording, onStopRecording, aspec
             </>
           )}
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap justify-center items-center gap-2">
             <Select defaultValue="1080p">
                 <SelectTrigger className="w-[120px]">
                     <Video className="h-4 w-4 mr-2" />

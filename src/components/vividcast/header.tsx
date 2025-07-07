@@ -28,7 +28,22 @@ const Logo = () => (
     </svg>
   );
 
-export function Header() {
+interface HeaderProps {
+    videoUrl: string | null;
+}
+
+export function Header({ videoUrl }: HeaderProps) {
+    const handleDownload = () => {
+        if (videoUrl) {
+            const a = document.createElement('a');
+            a.href = videoUrl;
+            a.download = `vividcast-recording-${new Date().toISOString().slice(0,19).replace('T','_').replace(/:/g,'-')}.webm`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    };
+
   return (
     <header className="py-4 px-6 bg-card border-b">
       <div className="container mx-auto flex justify-between items-center">
@@ -36,9 +51,9 @@ export function Header() {
           <Logo />
           <h1 className="text-2xl font-bold text-foreground font-headline">VividCast</h1>
         </div>
-        <Button>
-          <Download className="mr-2 h-4 w-4" />
-          Export Video
+        <Button onClick={handleDownload} disabled={!videoUrl}>
+          <Download className="mr-0 sm:mr-2 h-4 w-4" />
+          <span className="hidden sm:inline">Export Video</span>
         </Button>
       </div>
     </header>

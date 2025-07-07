@@ -29,8 +29,10 @@ export default function VividCastPage() {
   const [selectedLayout, setSelectedLayout] = useState('full-screen');
   const [selectedBackground, setSelectedBackground] = useState('');
   const [aspectRatio, setAspectRatio] = useState('16/9');
+  const [recordedVideoUrl, setRecordedVideoUrl] = useState<string | null>(null);
 
   const startRecording = () => {
+    setRecordedVideoUrl(null);
     setCountdown(3);
     const countdownInterval = setInterval(() => {
       setCountdown((prev) => {
@@ -51,7 +53,7 @@ export default function VividCastPage() {
 
   return (
     <div className="bg-background min-h-screen w-full flex flex-col font-body">
-      <Header />
+      <Header videoUrl={recordedVideoUrl} />
       <main className="flex-1 container mx-auto p-4 flex flex-col xl:flex-row items-start gap-6">
         <div className="w-full xl:w-auto">
           <LeftPanel
@@ -63,7 +65,11 @@ export default function VividCastPage() {
 
         <div className="flex-1 flex flex-col gap-4 items-center w-full max-w-5xl mx-auto">
           <div className={cn("relative w-full transition-all", `aspect-[${aspectRatio}]`)}>
-            <VideoPreview effects={effects} isRecording={isRecording} />
+            <VideoPreview
+              effects={effects}
+              isRecording={isRecording}
+              onRecordingComplete={setRecordedVideoUrl}
+            />
             {countdown > 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                 <span className="text-9xl font-bold text-white">{countdown}</span>

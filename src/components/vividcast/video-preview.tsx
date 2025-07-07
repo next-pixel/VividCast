@@ -8,15 +8,19 @@ import { cn } from '@/lib/utils';
 interface VideoPreviewProps {
   effects: Effects;
   isRecording: boolean;
+  onRecordingComplete: (url: string) => void;
 }
 
-export function VideoPreview({ effects }: VideoPreviewProps) {
+export function VideoPreview({ effects, isRecording, onRecordingComplete }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameIdRef = useRef<number>();
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const { toast } = useToast();
   const effectsRef = useRef(effects);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     effectsRef.current = effects;
@@ -97,7 +101,6 @@ export function VideoPreview({ effects }: VideoPreviewProps) {
 
     video.addEventListener('canplay', handleCanPlay);
     
-    // Fallback if event was already fired
     if (video.readyState >= video.HAVE_ENOUGH_DATA) {
       handleCanPlay();
     }
@@ -109,6 +112,38 @@ export function VideoPreview({ effects }: VideoPreviewProps) {
       video.removeEventListener('canplay', handleCanPlay);
     };
   }, [hasCameraPermission]);
+
+  useEffect(() => {
+    if (isRecording) {
+      recordedChunksRef.current = [];
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const stream = canvas.captureStream(30); // 30 fps
+      const audioTracks = (videoRef.current?.srcObject as MediaStream)?.getAudioTracks();
+      if (audioTracks && audioTracks.length > 0) {
+        stream.addTrack(audioTracks[0]);
+      }
+
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        onRecordingComplete(url);
+      };
+
+      mediaRecorderRef.current.start();
+    } else {
+      mediaRecorderRef.current?.stop();
+    }
+  }, [isRecording, onRecordingComplete]);
 
   return (
     <div className="relative w-full aspect-video bg-card-foreground rounded-lg overflow-hidden shadow-lg flex items-center justify-center">
