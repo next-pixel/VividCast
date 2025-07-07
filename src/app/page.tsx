@@ -186,6 +186,12 @@ export default function VividCastPage() {
   const stopRecording = () => {
     setIsRecording(false);
     setIsPaused(false);
+
+    if (isSharingScreen) {
+      screenStream?.getTracks().forEach(track => track.stop());
+      setScreenStream(null);
+      setIsSharingScreen(false);
+    }
   };
   
   const togglePause = () => {
