@@ -20,12 +20,17 @@ export type TeleprompterSettings = {
   fontSize: number;
 };
 
+export type TeleprompterPosition = 'top' | 'bottom' | 'left' | 'right';
+
 export default function VividCastPage() {
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [effects, setEffects] = useState<Effects>({ blur: 0, hue: 0, opacity: 100 });
   const [teleprompterText, setTeleprompterText] = useState('');
   const [teleprompterSettings, setTeleprompterSettings] = useState<TeleprompterSettings>({ speed: 2, fontSize: 48 });
+  const [teleprompterPosition, setTeleprompterPosition] = useState<TeleprompterPosition>('top');
   const [selectedLayout, setSelectedLayout] = useState('full-screen');
   const [selectedBackground, setSelectedBackground] = useState('');
   const [aspectRatio, setAspectRatio] = useState('16/9');
@@ -33,6 +38,8 @@ export default function VividCastPage() {
 
   const startRecording = () => {
     setRecordedVideoUrl(null);
+    setElapsedTime(0);
+    setIsPaused(false);
     setCountdown(3);
     const countdownInterval = setInterval(() => {
       setCountdown((prev) => {
@@ -49,7 +56,22 @@ export default function VividCastPage() {
 
   const stopRecording = () => {
     setIsRecording(false);
+    setIsPaused(false);
   };
+  
+  const togglePause = () => {
+    setIsPaused(prev => !prev);
+  }
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isRecording && !isPaused) {
+      interval = setInterval(() => {
+        setElapsedTime((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording, isPaused]);
 
   return (
     <div className="bg-background min-h-screen w-full flex flex-col font-body">
@@ -60,6 +82,8 @@ export default function VividCastPage() {
             setTeleprompterText={setTeleprompterText}
             teleprompterSettings={teleprompterSettings}
             setTeleprompterSettings={setTeleprompterSettings}
+            teleprompterPosition={teleprompterPosition}
+            onTeleprompterPositionChange={setTeleprompterPosition}
           />
         </div>
 
@@ -74,6 +98,8 @@ export default function VividCastPage() {
             <VideoPreview
               effects={effects}
               isRecording={isRecording}
+              isPaused={isPaused}
+              elapsedTime={elapsedTime}
               onRecordingComplete={setRecordedVideoUrl}
               selectedBackground={selectedBackground}
             />
@@ -85,13 +111,16 @@ export default function VividCastPage() {
              <TeleprompterDisplay 
                 text={teleprompterText}
                 settings={teleprompterSettings}
-                isRecording={isRecording}
+                isRecording={isRecording && !isPaused}
+                position={teleprompterPosition}
               />
           </div>
           <Controls
             isRecording={isRecording}
+            isPaused={isPaused}
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
+            onTogglePause={togglePause}
             aspectRatio={aspectRatio}
             onAspectRatioChange={setAspectRatio}
           />

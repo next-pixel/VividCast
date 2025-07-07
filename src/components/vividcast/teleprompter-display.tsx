@@ -1,13 +1,15 @@
 import React, { useRef, useEffect } from 'react';
-import type { TeleprompterSettings } from '@/app/page';
+import type { TeleprompterSettings, TeleprompterPosition } from '@/app/page';
+import { cn } from '@/lib/utils';
 
 interface TeleprompterDisplayProps {
   text: string;
   settings: TeleprompterSettings;
   isRecording: boolean;
+  position: TeleprompterPosition;
 }
 
-export function TeleprompterDisplay({ text, settings, isRecording }: TeleprompterDisplayProps) {
+export function TeleprompterDisplay({ text, settings, isRecording, position }: TeleprompterDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollY = useRef(0);
 
@@ -38,13 +40,28 @@ export function TeleprompterDisplay({ text, settings, isRecording }: Teleprompte
 
   if (!text) return null;
 
+  const positionClasses = {
+    top: 'top-0 left-0 right-0 h-1/2',
+    bottom: 'bottom-0 left-0 right-0 h-1/2',
+    left: 'top-0 left-0 bottom-0 w-1/3',
+    right: 'top-0 right-0 bottom-0 w-1/3',
+  };
+
+  const maskStyles = {
+    top: { maskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)' },
+    bottom: { maskImage: 'linear-gradient(to top, transparent 0%, black 20%, black 80%, transparent 100%)' },
+    left: { maskImage: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)' },
+    right: { maskImage: 'linear-gradient(to left, transparent 0%, black 20%, black 80%, transparent 100%)' },
+  };
+
   return (
     <div
       ref={containerRef}
-      className="absolute top-0 left-0 right-0 h-1/2 bg-black/50 overflow-hidden pointer-events-none"
-      style={{
-        maskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)',
-      }}
+      className={cn(
+        "absolute bg-black/50 overflow-hidden pointer-events-none",
+        positionClasses[position]
+      )}
+      style={maskStyles[position]}
     >
       <div
         className="text-center text-white transition-all duration-300 ease-linear p-16"

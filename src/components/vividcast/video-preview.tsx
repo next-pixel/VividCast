@@ -8,11 +8,20 @@ import { cn } from '@/lib/utils';
 interface VideoPreviewProps {
   effects: Effects;
   isRecording: boolean;
+  isPaused: boolean;
+  elapsedTime: number;
   onRecordingComplete: (url: string) => void;
   selectedBackground: string;
 }
 
-export function VideoPreview({ effects, isRecording, onRecordingComplete, selectedBackground }: VideoPreviewProps) {
+function formatTime(seconds: number) {
+    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${h}:${m}:${s}`;
+}
+
+export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRecordingComplete, selectedBackground }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameIdRef = useRef<number>();
@@ -117,35 +126,51 @@ export function VideoPreview({ effects, isRecording, onRecordingComplete, select
 
   useEffect(() => {
     if (isRecording) {
-      recordedChunksRef.current = [];
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+        if (mediaRecorderRef.current) return; // Already recording
+        recordedChunksRef.current = [];
+        const canvas = canvasRef.current;
+        if (!canvas) return;
 
-      const stream = canvas.captureStream(30); // 30 fps
-      const audioTracks = (videoRef.current?.srcObject as MediaStream)?.getAudioTracks();
-      if (audioTracks && audioTracks.length > 0) {
-        stream.addTrack(audioTracks[0]);
-      }
-
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
-
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
+        const stream = canvas.captureStream(30); // 30 fps
+        const audioTracks = (videoRef.current?.srcObject as MediaStream)?.getAudioTracks();
+        if (audioTracks && audioTracks.length > 0) {
+            stream.addTrack(audioTracks[0]);
         }
-      };
 
-      mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        onRecordingComplete(url);
-      };
+        mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
 
-      mediaRecorderRef.current.start();
+        mediaRecorderRef.current.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
+            }
+        };
+
+        mediaRecorderRef.current.onstop = () => {
+            const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            onRecordingComplete(url);
+            mediaRecorderRef.current = null;
+        };
+
+        mediaRecorderRef.current.start();
     } else {
-      mediaRecorderRef.current?.stop();
+        if(mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current?.stop();
+        }
     }
   }, [isRecording, onRecordingComplete]);
+
+   useEffect(() => {
+    if (!mediaRecorderRef.current) return;
+    if (isPaused) {
+      mediaRecorderRef.current.pause();
+    } else {
+      if (mediaRecorderRef.current.state === 'paused') {
+        mediaRecorderRef.current.resume();
+      }
+    }
+  }, [isPaused]);
+
 
   return (
     <div 
@@ -155,6 +180,14 @@ export function VideoPreview({ effects, isRecording, onRecordingComplete, select
       <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
       <canvas ref={canvasRef} className={cn('w-full h-full object-cover', { 'invisible': hasCameraPermission !== true })}></canvas>
       
+       {isRecording && (
+        <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm">
+          <span className={cn("h-3 w-3 rounded-full bg-red-500", { 'animate-pulse': !isPaused })} />
+          <span>{isPaused ? "Paused" : "REC"}</span>
+          <span className="font-mono">{formatTime(elapsedTime)}</span>
+        </div>
+      )}
+
       {hasCameraPermission === false && (
          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted-foreground bg-black/50">
             <VideoOff className="h-16 w-16" />

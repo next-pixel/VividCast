@@ -2,17 +2,27 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Square, Video, Zap, Scaling } from 'lucide-react';
+import { Play, Square, Video, Zap, Scaling, Pause } from 'lucide-react';
 
 interface ControlsProps {
   isRecording: boolean;
+  isPaused: boolean;
   onStartRecording: () => void;
   onStopRecording: () => void;
+  onTogglePause: () => void;
   aspectRatio: string;
   onAspectRatioChange: (ratio: string) => void;
 }
 
-export function Controls({ isRecording, onStartRecording, onStopRecording, aspectRatio, onAspectRatioChange }: ControlsProps) {
+export function Controls({ 
+  isRecording, 
+  isPaused,
+  onStartRecording, 
+  onStopRecording, 
+  onTogglePause,
+  aspectRatio, 
+  onAspectRatioChange 
+}: ControlsProps) {
   const aspectRatios = [
     { value: '16/9', label: 'Landscape (16:9)' },
     { value: '9/16', label: 'Portrait (9:16)' },
@@ -25,24 +35,35 @@ export function Controls({ isRecording, onStartRecording, onStopRecording, aspec
   return (
     <Card className="w-full max-w-lg shadow-md">
       <CardContent className="p-3 flex flex-col items-center gap-3">
-        <Button
-          size="lg"
-          className="w-48 transition-all duration-300 ease-in-out"
-          onClick={isRecording ? onStopRecording : onStartRecording}
-          variant={isRecording ? 'destructive' : 'default'}
-        >
-          {isRecording ? (
-            <>
-              <Square className="mr-2 h-5 w-5" />
-              Stop Recording
-            </>
-          ) : (
-            <>
-              <Play className="mr-2 h-5 w-5" />
-              Start Recording
-            </>
+        <div className="flex items-center gap-2">
+          <Button
+            size="lg"
+            className="w-48 transition-all duration-300 ease-in-out"
+            onClick={isRecording ? onStopRecording : onStartRecording}
+            variant={isRecording ? 'destructive' : 'default'}
+          >
+            {isRecording ? (
+              <>
+                <Square className="mr-2 h-5 w-5" />
+                Stop Recording
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-5 w-5" />
+                Start Recording
+              </>
+            )}
+          </Button>
+          {isRecording && (
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={onTogglePause}
+            >
+              {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+            </Button>
           )}
-        </Button>
+        </div>
         <div className="flex flex-wrap justify-center items-center gap-2">
             <Select defaultValue="1080p">
                 <SelectTrigger className="w-[120px]">

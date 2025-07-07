@@ -1,5 +1,5 @@
 import React from 'react';
-import type { TeleprompterSettings } from '@/app/page';
+import type { TeleprompterSettings, TeleprompterPosition } from '@/app/page';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mic, Film } from 'lucide-react';
@@ -10,12 +10,16 @@ interface LeftPanelProps {
   setTeleprompterText: (text: string) => void;
   teleprompterSettings: TeleprompterSettings;
   setTeleprompterSettings: (settings: TeleprompterSettings) => void;
+  teleprompterPosition: TeleprompterPosition;
+  onTeleprompterPositionChange: (position: TeleprompterPosition) => void;
 }
 
 export function LeftPanel({
   setTeleprompterText,
   teleprompterSettings,
   setTeleprompterSettings,
+  teleprompterPosition,
+  onTeleprompterPositionChange,
 }: LeftPanelProps) {
   return (
     <Card className="w-full max-w-sm xl:w-sm sticky top-6">
@@ -36,6 +40,8 @@ export function LeftPanel({
               onTextChange={setTeleprompterText}
               settings={teleprompterSettings}
               onSettingsChange={setTeleprompterSettings}
+              position={teleprompterPosition}
+              onPositionChange={onTeleprompterPositionChange}
             />
           </TabsContent>
           <TabsContent value="slides" className="p-4">
