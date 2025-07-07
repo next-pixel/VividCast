@@ -346,6 +346,9 @@ export function VideoPreview({
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
+        } else if (selectedBackground.startsWith('#') || selectedBackground.startsWith('hsl')) {
+            ctx.fillStyle = selectedBackground;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
       } else {
         // Draw a default background matching the theme's muted color for consistency in recording

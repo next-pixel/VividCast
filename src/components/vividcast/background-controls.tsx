@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,6 +13,14 @@ interface BackgroundControlsProps {
     selectedBackground: string;
 }
 
+// from globals.css: --primary: 248 83% 65%;
+const solidColors = [
+  { name: 'White', value: '#FFFFFF' },
+  { name: 'Light Gray', value: '#F3F4F6' },
+  { name: 'Studio Gray', value: '#4A4A4A' },
+  { name: 'Brand Blue', value: 'hsl(248 83% 65%)' },
+];
+
 const gradients = [
   { name: 'Sunrise', value: 'linear-gradient(to top right, #ff9a9e, #fad0c4)' },
   { name: 'Sunset', value: 'linear-gradient(to top right, #ff7e5f, #feb47b)' },
@@ -20,12 +29,15 @@ const gradients = [
 ];
 
 const imageBackgrounds = [
-    { name: 'Office', src: 'https://placehold.co/300x200.png', hint: 'modern office' },
-    { name: 'Nature', src: 'https://placehold.co/300x200.png', hint: 'serene landscape' },
-    { name: 'Abstract', src: 'https://placehold.co/300x200.png', hint: 'abstract shapes' },
+    { name: 'Modern Office', src: 'https://placehold.co/300x200.png', hint: 'modern office' },
+    { name: 'Home Office', src: 'https://placehold.co/300x200.png', hint: 'clean home office' },
+    { name: 'Bookshelf', src: 'https://placehold.co/300x200.png', hint: 'library bookshelf' },
+    { name: 'Boardroom', src: 'https://placehold.co/300x200.png', hint: 'conference room' },
     { name: 'Cafe', src: 'https://placehold.co/300x200.png', hint: 'cozy cafe' },
-]
-
+    { name: 'Nature', src: 'https://placehold.co/300x200.png', hint: 'serene landscape' },
+    { name: 'Studio', src: 'https://placehold.co/300x200.png', hint: 'photography studio' },
+    { name: 'Abstract', src: 'https://placehold.co/300x200.png', hint: 'abstract shapes' },
+];
 
 export function BackgroundControls({ onBackgroundChange, selectedBackground }: BackgroundControlsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,9 +68,10 @@ export function BackgroundControls({ onBackgroundChange, selectedBackground }: B
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Presets</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <Label>Solid & Gradients</Label>
+        <div className="grid grid-cols-4 gap-2">
           <button 
+             title="No Background"
              onClick={() => handleSelect('')}
              className={cn(
                 "relative aspect-video w-full rounded-md border-2 border-muted flex items-center justify-center hover:border-primary", 
@@ -68,9 +81,26 @@ export function BackgroundControls({ onBackgroundChange, selectedBackground }: B
             <Ban className="h-6 w-6 text-muted-foreground" />
              <span className="sr-only">No background</span>
           </button>
+          {solidColors.map((color) => (
+            <button
+                key={color.name}
+                title={color.name}
+                onClick={() => handleSelect(color.value)}
+                className={cn(
+                    "relative aspect-video w-full rounded-md overflow-hidden border-2 border-transparent hover:border-primary",
+                    selectedBackground === color.value && 'border-primary'
+                )}
+            >
+                <div
+                    style={{ background: color.value }}
+                    className="w-full h-full"
+                />
+            </button>
+          ))}
           {gradients.map((gradient) => (
             <button 
-                key={gradient.name} 
+                key={gradient.name}
+                title={gradient.name}
                 onClick={() => handleSelect(gradient.value)} 
                 className={cn(
                     "relative aspect-video w-full rounded-md overflow-hidden border-2 border-transparent hover:border-primary", 
@@ -78,18 +108,23 @@ export function BackgroundControls({ onBackgroundChange, selectedBackground }: B
                 )}
             >
               <div
-                title={gradient.name}
                 style={{ background: gradient.value }}
                 className="w-full h-full"
               />
             </button>
           ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Image Backgrounds</Label>
+        <div className="grid grid-cols-4 gap-2">
            {imageBackgrounds.map((img) => (
             <button
                 key={img.name}
+                title={img.name}
                 onClick={() => handleSelect(`url(${img.src})`)}
                 className={cn(
-                    "relative aspect-video w-full rounded-md overflow-hidden border-2 border-transparent hover:border-primary", 
+                    "relative group aspect-video w-full rounded-md overflow-hidden border-2 border-transparent hover:border-primary", 
                     selectedBackground === `url(${img.src})` && 'border-primary'
                 )}
             >
@@ -104,6 +139,7 @@ export function BackgroundControls({ onBackgroundChange, selectedBackground }: B
           ))}
         </div>
       </div>
+
       <Input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
       <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
         <Upload className="mr-2 h-4 w-4" />
