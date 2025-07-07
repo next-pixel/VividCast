@@ -3,11 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
-import { Save, Square, PictureInPicture, Columns, Maximize } from 'lucide-react';
+import { Save, Square, PictureInPicture, Columns, Maximize, MonitorUp, MonitorOff } from 'lucide-react';
 
 interface LayoutControlsProps {
   selectedLayout: string;
   onLayoutChange: (layout: string) => void;
+  isSharingScreen: boolean;
+  onToggleScreenShare: () => void;
 }
 
 const layouts = [
@@ -17,9 +19,21 @@ const layouts = [
   { id: 'presenter', label: 'Presenter View', icon: Square },
 ];
 
-export function LayoutControls({ selectedLayout, onLayoutChange }: LayoutControlsProps) {
+export function LayoutControls({ selectedLayout, onLayoutChange, isSharingScreen, onToggleScreenShare }: LayoutControlsProps) {
   return (
     <div className="space-y-6">
+       <div className="space-y-2">
+        <Button onClick={onToggleScreenShare} variant="outline" className="w-full">
+          {isSharingScreen ? (
+            <MonitorOff className="mr-2 h-4 w-4" />
+          ) : (
+            <MonitorUp className="mr-2 h-4 w-4" />
+          )}
+          {isSharingScreen ? 'Stop Sharing' : 'Share Screen'}
+        </Button>
+        <p className="text-xs text-muted-foreground text-center">Share your screen for presentations.</p>
+      </div>
+
       <div className="space-y-2">
         <Label>Video Layout</Label>
         <RadioGroup

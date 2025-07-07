@@ -12,6 +12,8 @@ interface VideoPreviewProps {
   elapsedTime: number;
   onRecordingComplete: (url: string) => void;
   selectedBackground: string;
+  screenStream: MediaStream | null;
+  selectedLayout: string;
 }
 
 function formatTime(seconds: number) {
@@ -21,8 +23,9 @@ function formatTime(seconds: number) {
     return `${h}:${m}:${s}`;
 }
 
-export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRecordingComplete, selectedBackground }: VideoPreviewProps) {
+export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRecordingComplete, selectedBackground, screenStream, selectedLayout }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const screenVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameIdRef = useRef<number>();
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -35,7 +38,7 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
   useEffect(() => {
     effectsRef.current = effects;
   }, [effects]);
-
+  
   useEffect(() => {
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
@@ -70,16 +73,22 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
     };
 
     getCameraPermission();
-
     return () => {
         stream?.getTracks().forEach((track) => track.stop());
     }
   }, [toast]);
 
   useEffect(() => {
-    if (hasCameraPermission !== true) return;
+    if (screenVideoRef.current && screenStream) {
+      screenVideoRef.current.srcObject = screenStream;
+      screenVideoRef.current.play().catch(e => console.error("Error playing screen share video:", e));
+    }
+  }, [screenStream]);
 
+
+  useEffect(() => {
     const video = videoRef.current;
+    const screenVideo = screenVideoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
@@ -88,53 +97,86 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
     
     const render = () => {
       const currentEffects = effectsRef.current;
+      const camReady = video.readyState >= 2;
+      const screenReady = screenStream && screenVideo && screenVideo.readyState >= 2;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.filter = `blur(${currentEffects.blur}px) hue-rotate(${currentEffects.hue}deg) opacity(${currentEffects.opacity}%)`;
-      
-      if (video.readyState >= video.HAVE_CURRENT_DATA) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      if (screenReady) {
+          const drawCam = (x:number, y:number, w:number, h:number) => { if (camReady) ctx.drawImage(video, x, y, w, h); };
+          const drawScreen = (x:number, y:number, w:number, h:number) => { if (screenReady) ctx.drawImage(screenVideo, x, y, w, h); };
+
+          switch (selectedLayout) {
+              case 'picture-in-picture':
+              case 'presenter':
+                  drawScreen(0, 0, canvas.width, canvas.height);
+                  const pipWidth = canvas.width / 4;
+                  const pipHeight = pipWidth * (video.videoHeight / video.videoWidth) || pipWidth * (9/16);
+                  drawCam(canvas.width - pipWidth - 20, canvas.height - pipHeight - 20, pipWidth, pipHeight);
+                  break;
+              case 'side-by-side':
+                  drawScreen(0, 0, canvas.width / 2, canvas.height);
+                  drawCam(canvas.width / 2, 0, canvas.width / 2, canvas.height);
+                  break;
+              case 'full-screen':
+              default:
+                  drawScreen(0, 0, canvas.width, canvas.height);
+                  break;
+          }
+      } else if (camReady) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       }
+      
+      ctx.filter = 'none';
       animationFrameIdRef.current = requestAnimationFrame(render);
     };
     
-    const handleCanPlay = () => {
-        video.play().catch(e => console.error("Error playing video:", e));
-        
-        if (video.videoWidth > 0) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            if (animationFrameIdRef.current) {
-                cancelAnimationFrame(animationFrameIdRef.current);
+    const startRenderLoop = () => {
+        if (!animationFrameIdRef.current) {
+            video.play().catch(e => console.error("Error playing video:", e));
+            if (video.videoWidth > 0) {
+                canvas.width = 1280;
+                canvas.height = 720;
             }
             render();
         }
     };
-
-    video.addEventListener('canplay', handleCanPlay);
     
-    if (video.readyState >= video.HAVE_ENOUGH_DATA) {
-      handleCanPlay();
+    video.addEventListener('canplay', startRenderLoop);
+    screenVideo?.addEventListener('canplay', startRenderLoop);
+    
+    if (video.readyState >= 3) { // HAVE_FUTURE_DATA
+      startRenderLoop();
     }
 
     return () => {
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = undefined;
       }
-      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('canplay', startRenderLoop);
+      screenVideo?.removeEventListener('canplay', startRenderLoop);
     };
-  }, [hasCameraPermission]);
+  }, [hasCameraPermission, screenStream, selectedLayout]);
 
   useEffect(() => {
     if (isRecording) {
-        if (mediaRecorderRef.current) return; // Already recording
+        if (mediaRecorderRef.current) return;
         recordedChunksRef.current = [];
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const stream = canvas.captureStream(30); // 30 fps
-        const audioTracks = (videoRef.current?.srcObject as MediaStream)?.getAudioTracks();
-        if (audioTracks && audioTracks.length > 0) {
-            stream.addTrack(audioTracks[0]);
+        const stream = canvas.captureStream(30);
+        
+        const cameraAudioTracks = (videoRef.current?.srcObject as MediaStream)?.getAudioTracks();
+        if (cameraAudioTracks && cameraAudioTracks.length > 0) {
+            stream.addTrack(cameraAudioTracks[0]);
+        }
+        
+        const screenAudioTracks = screenStream?.getAudioTracks();
+        if (screenAudioTracks && screenAudioTracks.length > 0) {
+            stream.addTrack(screenAudioTracks[0]);
         }
 
         mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
@@ -158,16 +200,14 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
             mediaRecorderRef.current?.stop();
         }
     }
-  }, [isRecording, onRecordingComplete]);
+  }, [isRecording, onRecordingComplete, screenStream]);
 
    useEffect(() => {
     if (!mediaRecorderRef.current) return;
     if (isPaused) {
-      mediaRecorderRef.current.pause();
+      if (mediaRecorderRef.current.state === 'recording') mediaRecorderRef.current.pause();
     } else {
-      if (mediaRecorderRef.current.state === 'paused') {
-        mediaRecorderRef.current.resume();
-      }
+      if (mediaRecorderRef.current.state === 'paused') mediaRecorderRef.current.resume();
     }
   }, [isPaused]);
 
@@ -178,7 +218,8 @@ export function VideoPreview({ effects, isRecording, isPaused, elapsedTime, onRe
       style={{ background: selectedBackground || 'hsl(var(--card-foreground))' }}
     >
       <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
-      <canvas ref={canvasRef} className={cn('w-full h-full object-cover', { 'invisible': hasCameraPermission !== true })}></canvas>
+      <video ref={screenVideoRef} autoPlay playsInline muted className="hidden"></video>
+      <canvas ref={canvasRef} className={cn('w-full h-full object-contain', { 'invisible': hasCameraPermission !== true })}></canvas>
       
        {isRecording && (
         <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm">

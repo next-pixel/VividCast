@@ -8,6 +8,7 @@ import { VideoPreview } from '@/components/vividcast/video-preview';
 import { Controls } from '@/components/vividcast/controls';
 import { TeleprompterDisplay } from '@/components/vividcast/teleprompter-display';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 export type Effects = {
   blur: number;
@@ -35,6 +36,42 @@ export default function VividCastPage() {
   const [selectedBackground, setSelectedBackground] = useState('');
   const [aspectRatio, setAspectRatio] = useState('16/9');
   const [recordedVideoUrl, setRecordedVideoUrl] = useState<string | null>(null);
+  const [isSharingScreen, setIsSharingScreen] = useState(false);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+
+  const { toast } = useToast();
+
+  const toggleScreenSharing = async () => {
+    if (isSharingScreen) {
+      screenStream?.getTracks().forEach(track => track.stop());
+      setScreenStream(null);
+      setIsSharingScreen(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
+        
+        const screenTrack = stream.getVideoTracks()[0];
+        screenTrack.onended = () => {
+          screenStream?.getTracks().forEach(track => track.stop());
+          setScreenStream(null);
+          setIsSharingScreen(false);
+        };
+        
+        setScreenStream(stream);
+        setIsSharingScreen(true);
+      } catch (err) {
+        console.error("Error sharing screen:", err);
+        toast({
+          variant: 'destructive',
+          title: 'Screen Share Failed',
+          description: 'Could not start screen sharing. Please check permissions.',
+        });
+      }
+    }
+  };
 
   const startRecording = () => {
     setRecordedVideoUrl(null);
@@ -102,6 +139,8 @@ export default function VividCastPage() {
               elapsedTime={elapsedTime}
               onRecordingComplete={setRecordedVideoUrl}
               selectedBackground={selectedBackground}
+              screenStream={screenStream}
+              selectedLayout={selectedLayout}
             />
             {countdown > 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -134,6 +173,8 @@ export default function VividCastPage() {
             setSelectedLayout={setSelectedLayout}
             setSelectedBackground={setSelectedBackground}
             selectedBackground={selectedBackground}
+            isSharingScreen={isSharingScreen}
+            onToggleScreenShare={toggleScreenSharing}
           />
         </div>
       </main>

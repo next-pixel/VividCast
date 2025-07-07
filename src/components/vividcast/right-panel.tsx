@@ -14,6 +14,8 @@ interface RightPanelProps {
   setSelectedLayout: (layout: string) => void;
   setSelectedBackground: (bg: string) => void;
   selectedBackground: string;
+  isSharingScreen: boolean;
+  onToggleScreenShare: () => void;
 }
 
 export function RightPanel({
@@ -22,7 +24,9 @@ export function RightPanel({
   selectedLayout,
   setSelectedLayout,
   setSelectedBackground,
-  selectedBackground
+  selectedBackground,
+  isSharingScreen,
+  onToggleScreenShare,
 }: RightPanelProps) {
   return (
     <Card className="w-full max-w-sm xl:w-sm sticky top-6">
@@ -43,7 +47,12 @@ export function RightPanel({
             </TabsTrigger>
           </TabsList>
           <TabsContent value="layout" className="p-4">
-            <LayoutControls selectedLayout={selectedLayout} onLayoutChange={setSelectedLayout} />
+            <LayoutControls
+              selectedLayout={selectedLayout}
+              onLayoutChange={setSelectedLayout}
+              isSharingScreen={isSharingScreen}
+              onToggleScreenShare={onToggleScreenShare}
+            />
           </TabsContent>
           <TabsContent value="background" className="p-4">
             <BackgroundControls onBackgroundChange={setSelectedBackground} selectedBackground={selectedBackground} />
