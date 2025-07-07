@@ -89,25 +89,25 @@ export function VideoPreview({
     ctx.restore();
   }, []);
 
-  useEffect(() => {
-    const initializeSegmenter = async () => {
-      try {
-        const { SelfieSegmentation } = await import('@mediapipe/selfie_segmentation');
-        const segmentation = new SelfieSegmentation({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/${file}`,
-        });
-        segmentation.setOptions({ modelSelection: 1 });
-        segmentation.onResults(onResults);
-        
-        await segmentation.initialize();
-        segmentationRef.current = segmentation;
-        offscreenCanvasRef.current = document.createElement('canvas');
-        setIsSegmenterReady(true);
-      } catch (error) {
-        console.error("Failed to initialize selfie segmentation:", error);
-      }
-    };
+  const initializeSegmenter = useCallback(async () => {
+    try {
+      const { SelfieSegmentation } = await import('@mediapipe/selfie_segmentation');
+      const newSegmentation = new SelfieSegmentation({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/${file}`,
+      });
+      newSegmentation.setOptions({ modelSelection: 1 });
+      newSegmentation.onResults(onResults);
+      
+      await newSegmentation.initialize();
+      segmentationRef.current = newSegmentation;
+      offscreenCanvasRef.current = document.createElement('canvas');
+      setIsSegmenterReady(true);
+    } catch (error) {
+      console.error("Failed to initialize selfie segmentation:", error);
+    }
+  }, [onResults]);
 
+  useEffect(() => {
     initializeSegmenter();
     
     return () => {
@@ -116,7 +116,7 @@ export function VideoPreview({
         offscreenCanvasRef.current = null;
         setIsSegmenterReady(false);
     };
-  }, [onResults]);
+  }, [initializeSegmenter]);
   
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -156,6 +156,33 @@ export function VideoPreview({
       logoImageRef.current = null;
     }
   }, [logoSettings.src]);
+
+  // This effect will run once and set up the handler for camera video
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.onloadeddata = () => {
+        video.play().catch(e => {
+          console.error("Video play failed", e);
+          toast({
+            variant: "destructive",
+            title: "Playback Error",
+            description: "Could not start the video. Please check browser permissions and try again."
+          });
+        });
+      };
+    }
+  }, [toast]);
+
+  // This effect will run once and set up the handler for screen share video
+  useEffect(() => {
+    const video = screenVideoRef.current;
+    if (video) {
+      video.onloadeddata = () => {
+        video.play().catch(e => console.error("Screen share video play failed", e));
+      };
+    }
+  }, []);
 
   useEffect(() => {
     if (!selectedDeviceId) return;
@@ -213,7 +240,7 @@ export function VideoPreview({
     const video = videoRef.current;
     const screenVideo = screenVideoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || !hasCameraPermission) return;
+    if (!video || !canvas || hasCameraPermission !== true) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -432,8 +459,8 @@ export function VideoPreview({
       className="relative w-full h-full bg-card flex items-center justify-center overflow-hidden"
       style={{ background: selectedBackground || 'hsl(var(--muted))' }}
     >
-      <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
-      <video ref={screenVideoRef} autoPlay playsInline muted className="hidden"></video>
+      <video ref={videoRef} playsInline muted className="hidden" />
+      <video ref={screenVideoRef} playsInline muted className="hidden" />
       <canvas ref={canvasRef} className="w-full h-full object-cover"></canvas>
       
        {isRecording && (

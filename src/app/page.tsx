@@ -101,10 +101,15 @@ export default function VividCastPage() {
         }
       } catch (err) {
         console.error("Could not get media devices.", err);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use this app.',
+        });
       }
     };
     getDevices();
-  }, []);
+  }, [toast]);
   
   const toggleFullScreen = () => {
     if (!videoContainerRef.current) return;
@@ -299,7 +304,7 @@ export default function VividCastPage() {
         <div className="flex-1 flex flex-col gap-6 items-center w-full max-w-6xl mx-auto">
           <div 
             ref={videoContainerRef}
-            className="relative w-full rounded-2xl overflow-hidden"
+            className="relative w-full rounded-2xl overflow-hidden bg-muted"
             style={{ 
               aspectRatio: `${arW} / ${arH}`,
               maxHeight: 'calc(100vh - 250px)'
