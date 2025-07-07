@@ -1,6 +1,6 @@
 
 import React from 'react';
-import type { PipSettings, PipShape, PipPosition } from '@/app/page';
+import type { PipSettings, PipShape, PipPosition, SideBySideSettings } from '@/app/page';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -10,6 +10,7 @@ import {
   Save, Square, PictureInPicture, Columns, Maximize, MonitorUp, MonitorOff,
   Circle, CornerUpLeft, CornerUpRight, CornerDownLeft, CornerDownRight
 } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 
 interface LayoutControlsProps {
   selectedLayout: string;
@@ -18,6 +19,8 @@ interface LayoutControlsProps {
   onToggleScreenShare: () => void;
   pipSettings: PipSettings;
   onPipSettingsChange: (settings: PipSettings) => void;
+  sideBySideSettings: SideBySideSettings;
+  onSideBySideSettingsChange: (settings: SideBySideSettings) => void;
 }
 
 const layouts = [
@@ -55,7 +58,16 @@ const pipPositionOptions: { value: PipPosition, icon: React.ElementType }[] = [
     { value: 'bottom-right', icon: CornerDownRight },
 ];
 
-export function LayoutControls({ selectedLayout, onLayoutChange, isSharingScreen, onToggleScreenShare, pipSettings, onPipSettingsChange }: LayoutControlsProps) {
+export function LayoutControls({ 
+  selectedLayout, 
+  onLayoutChange, 
+  isSharingScreen, 
+  onToggleScreenShare, 
+  pipSettings, 
+  onPipSettingsChange,
+  sideBySideSettings,
+  onSideBySideSettingsChange
+}: LayoutControlsProps) {
   return (
     <div className="space-y-6">
        <div className="space-y-2">
@@ -93,6 +105,27 @@ export function LayoutControls({ selectedLayout, onLayoutChange, isSharingScreen
           ))}
         </RadioGroup>
       </div>
+      
+      {selectedLayout === 'side-by-side' && (
+        <Card>
+          <CardHeader className="p-4">
+            <CardTitle className="text-base">Layout Split</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sbs-split">Camera: {sideBySideSettings.split}%</Label>
+              <Slider
+                id="sbs-split"
+                min={20}
+                max={80}
+                step={1}
+                value={[sideBySideSettings.split]}
+                onValueChange={(value) => onSideBySideSettingsChange({ split: value[0] })}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {selectedLayout === 'picture-in-picture' && (
         <Card>

@@ -1,7 +1,6 @@
 
-
 import React, { useRef, useEffect, useState } from 'react';
-import type { Effects, LogoSettings, PipSettings } from '@/app/page';
+import type { Effects, LogoSettings, PipSettings, SideBySideSettings } from '@/app/page';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { VideoOff, Loader2 } from 'lucide-react';
@@ -23,6 +22,7 @@ interface VideoPreviewProps {
   selectedDeviceId: string;
   logoSettings: LogoSettings;
   pipSettings: PipSettings;
+  sideBySideSettings: SideBySideSettings;
   aspectRatio: string;
 }
 
@@ -48,6 +48,7 @@ export function VideoPreview({
   selectedDeviceId,
   logoSettings,
   pipSettings,
+  sideBySideSettings,
   aspectRatio,
 }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -68,8 +69,8 @@ export function VideoPreview({
   const segmentationRef = useRef<SelfieSegmentation | null>(null);
   const [isSegmenterReady, setIsSegmenterReady] = useState(false);
   const lastFrameTimeRef = useRef(0);
+  const animationFrameId = useRef<number>();
 
-  // Update canvas resolution when aspect ratio changes to prevent distortion
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -79,7 +80,6 @@ export function VideoPreview({
 
     const targetAspectRatio = arW / arH;
     
-    // Set a base resolution for the canvas, e.g., 1920px wide.
     const canvasWidth = 1920;
     const canvasHeight = Math.round(canvasWidth / targetAspectRatio);
 
@@ -87,7 +87,6 @@ export function VideoPreview({
     canvas.height = canvasHeight;
   }, [aspectRatio]);
 
-  // Initialize Selfie Segmentation
   useEffect(() => {
     const onResults = (results: SegmentationResults) => {
         if (!offscreenCanvasRef.current) return;
@@ -215,19 +214,20 @@ export function VideoPreview({
   }, [screenStream]);
 
 
-  // Main rendering effect
   useEffect(() => {
     const video = videoRef.current;
     const screenVideo = screenVideoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || !hasCameraPermission) return;
 
+    video.play().catch(e => console.error("Error playing video:", e));
+    if (screenVideo) screenVideo.play().catch(e => console.error("Error playing screen share video:", e));
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    let renderIntervalId: number;
-
     const render = () => {
+      animationFrameId.current = requestAnimationFrame(render);
       if (!canvas || !ctx) return;
       
       const camReady = video.readyState >= 2;
@@ -314,8 +314,10 @@ export function VideoPreview({
             ctx.restore();
             break;
           case 'side-by-side':
-            drawCam(0, 0, canvas.width / 2, canvas.height);
-            drawPresentation(canvas.width / 2, 0, canvas.width / 2, canvas.height);
+            const camWidth = canvas.width * (sideBySideSettings.split / 100);
+            const presentationWidth = canvas.width - camWidth;
+            drawCam(0, 0, camWidth, canvas.height);
+            drawPresentation(camWidth, 0, presentationWidth, canvas.height);
             break;
           case 'presenter':
             drawCam(0, 0, canvas.width, canvas.height);
@@ -362,13 +364,12 @@ export function VideoPreview({
       }
     };
     
-    video.play().catch(e => console.error("Error playing video:", e));
-    renderIntervalId = window.setInterval(render, 1000 / 30); // 30 FPS
+    render();
 
     return () => {
-      clearInterval(renderIntervalId);
+      if(animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
-  }, [hasCameraPermission, screenStream, slideImages.length, selectedBackground, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, aspectRatio]);
+  }, [hasCameraPermission, screenStream, slideImages.length, selectedBackground, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, sideBySideSettings, aspectRatio]);
 
   useEffect(() => {
     if (isRecording) {
@@ -430,29 +431,6 @@ export function VideoPreview({
       if (mediaRecorderRef.current.state === 'paused') mediaRecorderRef.current.resume();
     }
   }, [isPaused]);
-
-  useEffect(() => {
-    const keepVideoPlaying = (videoElement: HTMLVideoElement | null) => {
-      if (!videoElement) return () => {};
-      
-      const onPause = () => {
-        if (videoElement.paused) {
-          videoElement.play().catch(() => {});
-        }
-      };
-      
-      videoElement.addEventListener('pause', onPause);
-      return () => videoElement.removeEventListener('pause', onPause);
-    };
-
-    const cleanupVideo = keepVideoPlaying(videoRef.current);
-    const cleanupScreen = keepVideoPlaying(screenVideoRef.current);
-
-    return () => {
-      cleanupVideo();
-      cleanupScreen();
-    };
-  }, []);
 
   const isPresenting = screenStream || slideImages.length > 0;
   const showSegmenterLoading = !!selectedBackground && !isPresenting && !isSegmenterReady;

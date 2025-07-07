@@ -45,6 +45,10 @@ export type PipSettings = {
   position: PipPosition;
 };
 
+export type SideBySideSettings = {
+  split: number;
+};
+
 export default function VividCastPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -77,6 +81,7 @@ export default function VividCastPage() {
     shape: 'rectangle',
     position: 'bottom-right'
   });
+  const [sideBySideSettings, setSideBySideSettings] = useState<SideBySideSettings>({ split: 50 });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
@@ -277,6 +282,8 @@ export default function VividCastPage() {
             onToggleScreenShare={toggleScreenSharing}
             pipSettings={pipSettings}
             onPipSettingsChange={setPipSettings}
+            sideBySideSettings={sideBySideSettings}
+            onSideBySideSettingsChange={setSideBySideSettings}
             // Background
             setSelectedBackground={setSelectedBackground}
             selectedBackground={selectedBackground}
@@ -313,6 +320,7 @@ export default function VividCastPage() {
               selectedDeviceId={selectedDeviceId}
               logoSettings={logoSettings}
               pipSettings={pipSettings}
+              sideBySideSettings={sideBySideSettings}
               aspectRatio={aspectRatio}
             />
             {countdown > 0 && (
