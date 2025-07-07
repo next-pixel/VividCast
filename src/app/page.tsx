@@ -64,7 +64,10 @@ export default function VividCastPage() {
         </div>
 
         <div className="flex-1 flex flex-col gap-4 items-center w-full max-w-5xl mx-auto">
-          <div className={cn("relative w-full transition-all", `aspect-[${aspectRatio}]`)}>
+          <div 
+            className="relative w-full transition-all"
+            style={{ aspectRatio: aspectRatio }}
+          >
             <VideoPreview
               effects={effects}
               isRecording={isRecording}

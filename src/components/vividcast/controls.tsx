@@ -14,13 +14,12 @@ interface ControlsProps {
 
 export function Controls({ isRecording, onStartRecording, onStopRecording, aspectRatio, onAspectRatioChange }: ControlsProps) {
   const aspectRatios = [
-    { value: '16/9', label: '16:9' },
-    { value: '21/9', label: '21:9' },
-    { value: '4/3', label: '4:3' },
-    { value: '1/1', label: '1:1' },
-    { value: '9/16', label: '9:16' },
-    { value: '4/5', label: '4:5' },
-    { value: '2/3', label: '2:3' },
+    { value: '16/9', label: 'Landscape (16:9)' },
+    { value: '9/16', label: 'Portrait (9:16)' },
+    { value: '1/1', label: 'Square (1:1)' },
+    { value: '4/3', label: 'Traditional (4:3)' },
+    { value: '21/9', label: 'Cinematic (21:9)' },
+    { value: '4/5', label: 'Social (4:5)' },
   ];
 
   return (
@@ -67,9 +66,9 @@ export function Controls({ isRecording, onStartRecording, onStopRecording, aspec
                 </SelectContent>
             </Select>
             <Select value={aspectRatio} onValueChange={onAspectRatioChange}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-[180px]">
                     <Scaling className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Aspect Ratio" />
+                    <SelectValue placeholder="Select Aspect Ratio" />
                 </SelectTrigger>
                 <SelectContent>
                     {aspectRatios.map((ratio) => (
