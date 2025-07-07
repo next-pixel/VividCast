@@ -7,6 +7,7 @@ import { RightPanel } from '@/components/vividcast/right-panel';
 import { VideoPreview } from '@/components/vividcast/video-preview';
 import { Controls } from '@/components/vividcast/controls';
 import { TeleprompterDisplay } from '@/components/vividcast/teleprompter-display';
+import { cn } from '@/lib/utils';
 
 export type Effects = {
   blur: number;
@@ -27,6 +28,7 @@ export default function VividCastPage() {
   const [teleprompterSettings, setTeleprompterSettings] = useState<TeleprompterSettings>({ speed: 2, fontSize: 48 });
   const [selectedLayout, setSelectedLayout] = useState('full-screen');
   const [selectedBackground, setSelectedBackground] = useState('');
+  const [aspectRatio, setAspectRatio] = useState('16/9');
 
   const startRecording = () => {
     setCountdown(3);
@@ -60,7 +62,7 @@ export default function VividCastPage() {
         </div>
 
         <div className="flex-1 flex flex-col gap-4 items-center w-full max-w-5xl mx-auto">
-          <div className="relative w-full aspect-video">
+          <div className={cn("relative w-full transition-all", `aspect-[${aspectRatio}]`)}>
             <VideoPreview effects={effects} isRecording={isRecording} />
             {countdown > 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -77,6 +79,8 @@ export default function VividCastPage() {
             isRecording={isRecording}
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
           />
         </div>
 
