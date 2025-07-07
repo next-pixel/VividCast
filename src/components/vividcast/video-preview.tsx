@@ -1,6 +1,7 @@
 
+
 import React, { useRef, useEffect, useState } from 'react';
-import type { Effects, LogoSettings } from '@/app/page';
+import type { Effects, LogoSettings, PipSettings } from '@/app/page';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { VideoOff, Loader2 } from 'lucide-react';
@@ -21,6 +22,7 @@ interface VideoPreviewProps {
   isMuted: boolean;
   selectedDeviceId: string;
   logoSettings: LogoSettings;
+  pipSettings: PipSettings;
   aspectRatio: string;
 }
 
@@ -45,6 +47,7 @@ export function VideoPreview({
   isMuted,
   selectedDeviceId,
   logoSettings,
+  pipSettings,
   aspectRatio,
 }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -285,8 +288,30 @@ export function VideoPreview({
           case 'picture-in-picture':
             drawPresentation(0, 0, canvas.width, canvas.height);
             const pipWidth = canvas.width / 4;
-            const pipHeight = pipWidth * (video.videoHeight / video.videoWidth || 9/16);
-            drawCam(canvas.width - pipWidth - 20, canvas.height - pipHeight - 20, pipWidth, pipHeight);
+            const camAspectRatio = video.videoHeight ? video.videoWidth / video.videoHeight : 16/9;
+            const pipHeight = pipWidth / camAspectRatio;
+            const padding = 20;
+
+            let pipX = 0, pipY = 0;
+            switch(pipSettings.position) {
+              case 'top-left': pipX = padding; pipY = padding; break;
+              case 'top-right': pipX = canvas.width - pipWidth - padding; pipY = padding; break;
+              case 'bottom-left': pipX = padding; pipY = canvas.height - pipHeight - padding; break;
+              case 'bottom-right': pipX = canvas.width - pipWidth - padding; pipY = canvas.height - pipHeight - padding; break;
+            }
+
+            ctx.save();
+            ctx.beginPath();
+            if (pipSettings.shape === 'circle') {
+              ctx.arc(pipX + pipWidth / 2, pipY + pipHeight / 2, Math.min(pipWidth, pipHeight) / 2, 0, 2 * Math.PI);
+            } else if (pipSettings.shape === 'rounded-square') {
+              ctx.roundRect(pipX, pipY, pipWidth, pipHeight, 30);
+            } else {
+              ctx.rect(pipX, pipY, pipWidth, pipHeight);
+            }
+            ctx.clip();
+            drawCam(pipX, pipY, pipWidth, pipHeight);
+            ctx.restore();
             break;
           case 'side-by-side':
             drawCam(0, 0, canvas.width / 2, canvas.height);
@@ -343,7 +368,7 @@ export function VideoPreview({
     return () => {
       clearInterval(renderIntervalId);
     };
-  }, [hasCameraPermission, screenStream, slideImages.length, selectedBackground, isSegmenterReady, effects, selectedLayout, logoSettings, aspectRatio]);
+  }, [hasCameraPermission, screenStream, slideImages.length, selectedBackground, isSegmenterReady, effects, selectedLayout, logoSettings, pipSettings, aspectRatio]);
 
   useEffect(() => {
     if (isRecording) {

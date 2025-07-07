@@ -1,15 +1,23 @@
+
 import React from 'react';
+import type { PipSettings, PipShape, PipPosition } from '@/app/page';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Save, Square, PictureInPicture, Columns, Maximize, MonitorUp, MonitorOff } from 'lucide-react';
+import { 
+  Save, Square, PictureInPicture, Columns, Maximize, MonitorUp, MonitorOff,
+  Circle, CornerUpLeft, CornerUpRight, CornerDownLeft, CornerDownRight
+} from 'lucide-react';
 
 interface LayoutControlsProps {
   selectedLayout: string;
   onLayoutChange: (layout: string) => void;
   isSharingScreen: boolean;
   onToggleScreenShare: () => void;
+  pipSettings: PipSettings;
+  onPipSettingsChange: (settings: PipSettings) => void;
 }
 
 const layouts = [
@@ -19,7 +27,35 @@ const layouts = [
   { id: 'presenter', label: 'Presenter View', icon: Square },
 ];
 
-export function LayoutControls({ selectedLayout, onLayoutChange, isSharingScreen, onToggleScreenShare }: LayoutControlsProps) {
+const RoundedRectangle = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        {...props}
+    >
+        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+    </svg>
+);
+
+
+const pipShapeOptions: { value: PipShape, icon: React.ElementType, label: string }[] = [
+  { value: 'rectangle', icon: Square, label: 'Rectangle' },
+  { value: 'rounded-square', icon: RoundedRectangle, label: 'Rounded' },
+  { value: 'circle', icon: Circle, label: 'Circle' },
+];
+
+const pipPositionOptions: { value: PipPosition, icon: React.ElementType }[] = [
+    { value: 'top-left', icon: CornerUpLeft },
+    { value: 'top-right', icon: CornerUpRight },
+    { value: 'bottom-left', icon: CornerDownLeft },
+    { value: 'bottom-right', icon: CornerDownRight },
+];
+
+export function LayoutControls({ selectedLayout, onLayoutChange, isSharingScreen, onToggleScreenShare, pipSettings, onPipSettingsChange }: LayoutControlsProps) {
   return (
     <div className="space-y-6">
        <div className="space-y-2">
@@ -57,6 +93,62 @@ export function LayoutControls({ selectedLayout, onLayoutChange, isSharingScreen
           ))}
         </RadioGroup>
       </div>
+
+      {selectedLayout === 'picture-in-picture' && (
+        <Card>
+          <CardHeader className="p-4">
+            <CardTitle className="text-base">PiP Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0 space-y-4">
+            <div className="space-y-2">
+              <Label>Shape</Label>
+              <RadioGroup
+                value={pipSettings.shape}
+                onValueChange={(value: PipShape) => onPipSettingsChange({ ...pipSettings, shape: value })}
+                className="grid grid-cols-3 gap-2"
+              >
+                {pipShapeOptions.map(opt => (
+                  <Label
+                    key={opt.value}
+                    htmlFor={`shape-${opt.value}`}
+                    className={cn(
+                      "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 gap-1 h-16 hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                      pipSettings.shape === opt.value && "border-primary"
+                    )}
+                  >
+                    <RadioGroupItem value={opt.value} id={`shape-${opt.value}`} className="sr-only" />
+                    <opt.icon className="h-6 w-6" />
+                    <span className="text-xs">{opt.label}</span>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </div>
+            <div className="space-y-2">
+                <Label>Position</Label>
+                <RadioGroup
+                    value={pipSettings.position}
+                    onValueChange={(value: PipPosition) => onPipSettingsChange({ ...pipSettings, position: value })}
+                    className="grid grid-cols-4 gap-2"
+                >
+                    {pipPositionOptions.map(opt => (
+                        <Label
+                            key={opt.value}
+                            htmlFor={`pip-pos-${opt.value}`}
+                            className={cn(
+                                "flex items-center justify-center rounded-md border-2 border-muted bg-popover p-2 h-12 hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                                pipSettings.position === opt.value && "border-primary"
+                            )}
+                        >
+                            <RadioGroupItem value={opt.value} id={`pip-pos-${opt.value}`} className="sr-only" />
+                            <opt.icon className="h-5 w-5" />
+                        </Label>
+                    ))}
+                </RadioGroup>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Button className="w-full">
         <Save className="mr-2 h-4 w-4" />
         Save Layout

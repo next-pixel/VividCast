@@ -1,5 +1,6 @@
+
 import React from 'react';
-import type { TeleprompterSettings, TeleprompterPosition, Effects, LogoSettings } from '@/app/page';
+import type { TeleprompterSettings, TeleprompterPosition, Effects, LogoSettings, PipSettings } from '@/app/page';
 import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Mic, Film, Layout, ImageIcon, Wand2, Award } from 'lucide-react';
@@ -28,6 +29,8 @@ interface SettingsPanelProps {
   setSelectedLayout: (layout: string) => void;
   isSharingScreen: boolean;
   onToggleScreenShare: () => void;
+  pipSettings: PipSettings;
+  onPipSettingsChange: (settings: PipSettings) => void;
   // Background
   setSelectedBackground: (bg: string) => void;
   selectedBackground: string;
@@ -93,6 +96,8 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 onLayoutChange={props.setSelectedLayout}
                 isSharingScreen={props.isSharingScreen}
                 onToggleScreenShare={props.onToggleScreenShare}
+                pipSettings={props.pipSettings}
+                onPipSettingsChange={props.onPipSettingsChange}
               />
             </AccordionContent>
           </AccordionItem>

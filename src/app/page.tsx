@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -36,6 +37,14 @@ export type LogoSettings = {
   size: number;
 }
 
+export type PipShape = 'rectangle' | 'rounded-square' | 'circle';
+export type PipPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+export type PipSettings = {
+  shape: PipShape;
+  position: PipPosition;
+};
+
 export default function VividCastPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -64,6 +73,10 @@ export default function VividCastPage() {
     opacity: 80,
     size: 15,
   })
+  const [pipSettings, setPipSettings] = useState<PipSettings>({
+    shape: 'rectangle',
+    position: 'bottom-right'
+  });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
@@ -262,6 +275,8 @@ export default function VividCastPage() {
             setSelectedLayout={setSelectedLayout}
             isSharingScreen={isSharingScreen}
             onToggleScreenShare={toggleScreenSharing}
+            pipSettings={pipSettings}
+            onPipSettingsChange={setPipSettings}
             // Background
             setSelectedBackground={setSelectedBackground}
             selectedBackground={selectedBackground}
@@ -297,6 +312,7 @@ export default function VividCastPage() {
               isMuted={isMuted}
               selectedDeviceId={selectedDeviceId}
               logoSettings={logoSettings}
+              pipSettings={pipSettings}
               aspectRatio={aspectRatio}
             />
             {countdown > 0 && (
