@@ -66,7 +66,10 @@ export default function VividCastPage() {
         <div className="flex-1 flex flex-col gap-4 items-center w-full max-w-5xl mx-auto">
           <div 
             className="relative w-full transition-all"
-            style={{ aspectRatio: aspectRatio }}
+            style={{ 
+              aspectRatio: aspectRatio,
+              maxHeight: 'calc(100vh - 280px)'
+            }}
           >
             <VideoPreview
               effects={effects}

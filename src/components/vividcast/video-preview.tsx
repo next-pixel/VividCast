@@ -149,7 +149,7 @@ export function VideoPreview({ effects, isRecording, onRecordingComplete, select
 
   return (
     <div 
-      className="relative w-full aspect-video rounded-lg overflow-hidden shadow-lg flex items-center justify-center"
+      className="relative w-full h-full rounded-lg overflow-hidden shadow-lg flex items-center justify-center"
       style={{ background: selectedBackground || 'hsl(var(--card-foreground))' }}
     >
       <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
