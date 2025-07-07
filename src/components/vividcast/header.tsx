@@ -48,15 +48,15 @@ export function Header({ videoUrl }: HeaderProps) {
     };
 
   return (
-    <header className="py-4 px-6 bg-card border-b">
+    <header className="py-4 px-6 bg-background">
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center gap-3">
           <Logo />
-          <h1 className="text-2xl font-bold text-foreground font-headline">VividCast</h1>
+          <h1 className="text-2xl font-bold text-foreground">VividCast</h1>
         </div>
         <div className="flex items-center gap-2">
             <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
                 onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
                 >
@@ -64,7 +64,7 @@ export function Header({ videoUrl }: HeaderProps) {
                 <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                 <span className="sr-only">Toggle theme</span>
             </Button>
-            <Button onClick={handleDownload} disabled={!videoUrl}>
+            <Button onClick={handleDownload} disabled={!videoUrl} size="sm">
               <Download className="mr-0 sm:mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Export Video</span>
             </Button>

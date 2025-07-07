@@ -2,8 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Header } from '@/components/vividcast/header';
-import { LeftPanel } from '@/components/vividcast/left-panel';
-import { RightPanel } from '@/components/vividcast/right-panel';
+import { SettingsPanel } from '@/components/vividcast/settings-panel';
 import { VideoPreview } from '@/components/vividcast/video-preview';
 import { Controls } from '@/components/vividcast/controls';
 import { TeleprompterDisplay } from '@/components/vividcast/teleprompter-display';
@@ -204,30 +203,46 @@ export default function VividCastPage() {
   }, [isRecording, isPaused]);
 
   return (
-    <div className="bg-background min-h-screen w-full flex flex-col font-body">
+    <div className="bg-background min-h-screen w-full flex flex-col font-sans">
       <Header videoUrl={recordedVideoUrl} />
-      <main className="flex-1 container mx-auto p-4 flex flex-col xl:flex-row items-start gap-6">
-        <div className="w-full xl:w-auto">
-          <LeftPanel
+      <main className="flex-1 container mx-auto p-4 md:p-6 lg:p-8 flex flex-col lg:flex-row items-start gap-8">
+        <div className="w-full lg:w-96 lg:sticky lg:top-8">
+          <SettingsPanel
+            // Teleprompter
             setTeleprompterText={setTeleprompterText}
             teleprompterSettings={teleprompterSettings}
             setTeleprompterSettings={setTeleprompterSettings}
             teleprompterPosition={teleprompterPosition}
             onTeleprompterPositionChange={setTeleprompterPosition}
+            // Slides
             onPdfUpload={handlePdfUpload}
             isProcessingPdf={isProcessingPdf}
             currentSlide={currentSlide}
             totalSlides={slideImages.length}
             onSlideChange={handleSlideChange}
+            // Layout
+            selectedLayout={selectedLayout}
+            setSelectedLayout={setSelectedLayout}
+            isSharingScreen={isSharingScreen}
+            onToggleScreenShare={toggleScreenSharing}
+            // Background
+            setSelectedBackground={setSelectedBackground}
+            selectedBackground={selectedBackground}
+            // Effects
+            effects={effects}
+            setEffects={setEffects}
+            // Branding
+            logoSettings={logoSettings}
+            onLogoSettingsChange={setLogoSettings}
           />
         </div>
 
-        <div className="flex-1 flex flex-col gap-4 items-center w-full max-w-5xl mx-auto">
+        <div className="flex-1 flex flex-col gap-6 items-center w-full max-w-6xl mx-auto">
           <div 
-            className="relative w-full transition-all"
+            className="relative w-full rounded-2xl overflow-hidden"
             style={{ 
               aspectRatio: aspectRatio,
-              maxHeight: 'calc(100vh - 280px)'
+              maxHeight: 'calc(100vh - 250px)'
             }}
           >
             <VideoPreview
@@ -270,21 +285,6 @@ export default function VividCastPage() {
             videoDevices={videoDevices}
             selectedDeviceId={selectedDeviceId}
             onCameraChange={setSelectedDeviceId}
-          />
-        </div>
-
-        <div className="w-full xl:w-auto">
-          <RightPanel
-            effects={effects}
-            setEffects={setEffects}
-            selectedLayout={selectedLayout}
-            setSelectedLayout={setSelectedLayout}
-            setSelectedBackground={setSelectedBackground}
-            selectedBackground={selectedBackground}
-            isSharingScreen={isSharingScreen}
-            onToggleScreenShare={toggleScreenSharing}
-            logoSettings={logoSettings}
-            onLogoSettingsChange={setLogoSettings}
           />
         </div>
       </main>

@@ -333,15 +333,15 @@ export function VideoPreview({
 
   return (
     <div 
-      className="relative w-full h-full rounded-lg overflow-hidden shadow-lg flex items-center justify-center"
-      style={{ background: selectedBackground || 'hsl(var(--card-foreground))' }}
+      className="relative w-full h-full border-2 border-muted bg-card shadow-lg flex items-center justify-center"
+      style={{ background: selectedBackground || 'hsl(var(--muted))' }}
     >
       <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
       <video ref={screenVideoRef} autoPlay playsInline muted className="hidden"></video>
       <canvas ref={canvasRef} className={cn('w-full h-full object-contain', { 'invisible': hasCameraPermission !== true })}></canvas>
       
        {isRecording && (
-        <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm">
+        <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm z-10">
           <span className={cn("h-3 w-3 rounded-full bg-red-500", { 'animate-pulse': !isPaused })} />
           <span>{isPaused ? "Paused" : "REC"}</span>
           <span className="font-mono">{formatTime(elapsedTime)}</span>
