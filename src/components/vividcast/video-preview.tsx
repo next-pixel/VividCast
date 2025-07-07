@@ -238,7 +238,7 @@ export function VideoPreview({
         segmentationRef.current?.send({ image: video });
       }
 
-      const drawWithLetterbox = (source: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => {
+      const drawCovered = (source: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => {
         const sw = (source as any).videoWidth || (source as any).naturalWidth || (source as any).width || 0;
         const sh = (source as any).videoHeight || (source as any).naturalHeight || (source as any).height || 0;
         if (!sw || !sh) return;
@@ -246,20 +246,16 @@ export function VideoPreview({
         const sRatio = sw / sh;
         const dRatio = dw / dh;
         
-        let w, h, x, y;
-  
+        let sx = 0, sy = 0, sWidth = sw, sHeight = sh;
+
         if (sRatio > dRatio) {
-            w = dw;
-            h = dw / sRatio;
-            x = dx;
-            y = dy + (dh - h) / 2;
+            sWidth = sh * dRatio;
+            sx = (sw - sWidth) / 2;
         } else {
-            h = dh;
-            w = dh * sRatio;
-            x = dx + (dw - w) / 2;
-            y = dy;
+            sHeight = sw / dRatio;
+            sy = (sh - sHeight) / 2;
         }
-        ctx.drawImage(source, x, y, w, h);
+        ctx.drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dw, dh);
       }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -268,15 +264,15 @@ export function VideoPreview({
       const drawCam = (x: number, y: number, w: number, h: number) => {
         const source = (useSegmentation && offscreenCanvasRef.current?.width > 0) ? offscreenCanvasRef.current : video;
         if (camReady) {
-          drawWithLetterbox(source!, x, y, w, h);
+          drawCovered(source!, x, y, w, h);
         }
       };
 
       const drawScreen = (x: number, y: number, w: number, h: number) => { 
-        if (screenReady) drawWithLetterbox(screenVideo!, x, y, w, h);
+        if (screenReady) drawCovered(screenVideo!, x, y, w, h);
       };
       const drawSlide = (x: number, y: number, w: number, h: number) => { 
-        if (slideReady) drawWithLetterbox(slideImageRef.current!, x, y, w, h);
+        if (slideReady) drawCovered(slideImageRef.current!, x, y, w, h);
       };
       
       const drawPresentation = slideReady ? drawSlide : drawScreen;
@@ -443,7 +439,7 @@ export function VideoPreview({
     >
       <video ref={videoRef} autoPlay playsInline muted className="hidden"></video>
       <video ref={screenVideoRef} autoPlay playsInline muted className="hidden"></video>
-      <canvas ref={canvasRef} className={cn('w-full h-full object-contain', { 'invisible': hasCameraPermission !== true })}></canvas>
+      <canvas ref={canvasRef} className={cn('w-full h-full object-cover', { 'invisible': hasCameraPermission !== true })}></canvas>
       
        {isRecording && (
         <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm z-10">
@@ -481,5 +477,3 @@ export function VideoPreview({
     </div>
   );
 }
-
-    
