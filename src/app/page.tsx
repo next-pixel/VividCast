@@ -218,20 +218,26 @@ export default function VividCastPage() {
         
         const screenTrack = stream.getVideoTracks()[0];
         screenTrack.onended = () => {
-          screenStream?.getTracks().forEach(track => track.stop());
+          stream.getTracks().forEach(track => track.stop());
           setScreenStream(null);
           setIsSharingScreen(false);
+          toast({
+            title: 'Screen Share Ended',
+            description: 'You have stopped sharing your screen.',
+          });
         };
         
         setScreenStream(stream);
         setIsSharingScreen(true);
       } catch (err) {
         console.error("Error sharing screen:", err);
-        toast({
-          variant: 'destructive',
-          title: 'Screen Share Failed',
-          description: 'Could not start screen sharing. Please check permissions.',
-        });
+        if ((err as Error).name !== 'NotAllowedError') {
+          toast({
+            variant: 'destructive',
+            title: 'Screen Share Failed',
+            description: 'Could not start screen sharing. Please check permissions.',
+          });
+        }
       }
     }
   };
