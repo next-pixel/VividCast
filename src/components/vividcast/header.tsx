@@ -18,7 +18,7 @@ export function Header({ videoUrl, onStartTour }: HeaderProps) {
         if (videoUrl) {
             const a = document.createElement('a');
             a.href = videoUrl;
-            a.download = `vividcast-recording-${new Date().toISOString().slice(0,19).replace('T','_').replace(/:/g,'-')}.mp4`;
+            a.download = `vividcast-recording-${new Date().toISOString().slice(0,19).replace('T','_').replace(/:/g,'-')}.webm`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

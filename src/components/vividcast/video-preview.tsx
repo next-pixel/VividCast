@@ -351,14 +351,8 @@ export function VideoPreview({
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
       } else {
-        // Draw a default background matching the theme's muted color for consistency in recording
-        ctx.fillStyle = '#E5E7EB'; // A neutral light gray as a fallback.
-        try {
-            // Attempt to get the computed style for a more accurate color
-            const style = getComputedStyle(canvas);
-            const mutedColor = style.getPropertyValue('--muted');
-            if (mutedColor) ctx.fillStyle = `hsl(${mutedColor})`;
-        } catch(e) { /* ignore */ }
+        // Draw a default light gray background to ensure the video isn't black
+        ctx.fillStyle = '#F3F4F6'; // Corresponds to Tailwind's gray-100
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
       // --- End background drawing ---
@@ -515,8 +509,10 @@ export function VideoPreview({
             finalStream.getTracks().forEach(track => track.stop());
             mediaRecorderRef.current = null;
         };
-
-        mediaRecorderRef.current.start();
+        
+        requestAnimationFrame(() => {
+          mediaRecorderRef.current?.start();
+        });
     } else {
         if(mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current?.stop();
